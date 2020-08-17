@@ -4,6 +4,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import submitit
+import os
 
 
 def create_parser():
@@ -40,9 +41,13 @@ def build_command(args, base_params, data_dir):
 
 
 def run(cmd):
-    # proc = subprocess.Popen(cmd)
-    # proc.wait()
-    import os
+    cmd = ' '.join(cmd)
+    print(cmd)
+    os.system(cmd)
+
+
+def run_local(cmd, args):
+    cmd = [f'python -m torch.distributed.launch --nproc_per_node={args.gpus}'] + cmd[2:]
     cmd = ' '.join(cmd)
     print(cmd)
     os.system(cmd)
@@ -69,4 +74,4 @@ def main(args, base_params, data_dir):
         job = executor.submit(run, cmd)
         print('Submitted job:', job.job_id)
     else:
-        run(cmd)
+        run_local(cmd, args)

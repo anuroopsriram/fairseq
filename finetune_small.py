@@ -3,7 +3,7 @@ import submit
 base_params = {
     'distributed-world-size': 24,
     'distributed-port':13434,
-    'save-dir': '/checkpoint/anuroops/fairseq/wav2vec/w2v.base.ft/',
+    'save-dir': '/checkpoint/anuroops/fairseq/wav2vec/w2v.small.ft/',
     'fp16': True,
     # 'wer-args': ('/datasets01_101/librispeech/021419/lm/4-gram.arpa', '/checkpoint/anuroops/data/libris/lab/dict.ltr.txt', 2, -1),
     'post-process': 'letter',
@@ -15,7 +15,7 @@ base_params = {
     'sentence-avg': True,
     'task': 'audio_pretraining',
     'arch': 'wav2vec_ctc',
-    'w2v-path': '/checkpoint/anuroops/fairseq/wav2vec/w2v.base/checkpoint_best.pt',
+    'w2v-path': '/checkpoint/anuroops/fairseq/wav2vec/w2v.small/checkpoint_best.pt',
     'labels': 'ltr',
     'apply-mask': True,
     'mask-selection': 'static',

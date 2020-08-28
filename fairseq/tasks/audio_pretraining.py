@@ -10,6 +10,7 @@ import sys
 
 from fairseq.data import FileAudioDataset, Dictionary, AddTargetDataset
 from . import FairseqTask, register_task
+from ..data.audio.raw_audio_dataset import LogMelAudioDataset
 
 
 class LabelEncoder(object):
@@ -69,6 +70,30 @@ class AudioPretrainingTask(FairseqTask):
             help="extension of the label file to load, if any",
         )
 
+        parser.add_argument(
+            "--logmel",
+            action="store_true",
+            help="if set, creates logmel features",
+        )
+        parser.add_argument(
+            "--num-mel-bins",
+            default=80,
+            type=int,
+            help="number of mel filter banks",
+        )
+        parser.add_argument(
+            "--frame-length",
+            default=25,
+            type=float,
+            help="Frame length to compute MEL filter banks",
+        )
+        parser.add_argument(
+            "--frame-shift",
+            default=10,
+            type=float,
+            help="Frame length to compute MEL filter banks",
+        )
+
     def __init__(self, args, source_dictionary=None):
         super().__init__(args)
         self._target_dictionary = None
@@ -91,15 +116,28 @@ class AudioPretrainingTask(FairseqTask):
             split (str): name of the split (e.g., train, valid, test)
         """
         manifest = os.path.join(self.args.data, "{}.tsv".format(split))
-        self.datasets[split] = FileAudioDataset(
-            manifest,
-            sample_rate=self.args.sample_rate,
-            max_sample_size=self.args.max_sample_size,
-            min_sample_size=self.args.max_sample_size,
-            min_length=self.args.min_sample_size,
-            pad=self.args.labels is not None or self.args.enable_padding,
-            normalize=self.args.normalize,
-        )
+        if self.args.logmel:
+            self.datasets[split] = LogMelAudioDataset(
+                manifest,
+                sample_rate=self.args.sample_rate,
+                max_sample_size=self.args.max_sample_size,
+                min_sample_size=self.args.max_sample_size,
+                min_length=self.args.min_sample_size,
+                pad=self.args.labels is not None or self.args.enable_padding,
+                num_mel_bins=self.args.num_mel_bins,
+                frame_length=self.args.frame_length,
+                frame_shift=self.args.frame_shift,
+            )
+        else:
+            self.datasets[split] = FileAudioDataset(
+                manifest,
+                sample_rate=self.args.sample_rate,
+                max_sample_size=self.args.max_sample_size,
+                min_sample_size=self.args.max_sample_size,
+                min_length=self.args.min_sample_size,
+                pad=self.args.labels is not None or self.args.enable_padding,
+                normalize=self.args.normalize,
+            )
 
         if self.args.labels:
             dict_path = os.path.join(self.args.data, f"dict.{self.args.labels}.txt")

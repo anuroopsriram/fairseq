@@ -13,8 +13,17 @@ from torch.nn import Parameter
 
 from fairseq import utils
 from fairseq.incremental_decoding_utils import with_incremental_state
+from fairseq.modules import RelativePositionalEmbedding
 from fairseq.modules.fairseq_dropout import FairseqDropout
 from fairseq.modules.quant_noise import quant_noise
+
+
+def PositionalEmbedding(num_embeddings, embedding_dim):
+    if num_embeddings is None or num_embeddings == 0:
+        return None
+    m = RelativePositionalEmbedding(num_embeddings, embedding_dim)
+    nn.init.normal(m.weight, mean=0, std=embedding_dim ** -0.5)
+    return m
 
 
 @with_incremental_state

@@ -92,6 +92,10 @@ def distributed_init(args):
             logger.info('distributed init (rank {}): {}'.format(
                 args.distributed_rank, args.distributed_init_method,
             ))
+            logger.info(f'args.distributed_backend {args.distributed_backend}')
+            logger.info(f'args.distributed_init_method {args.distributed_init_method}')
+            logger.info(f'args.distributed_world_size {args.distributed_world_size}')
+            logger.info(f'args.distributed_rank {args.distributed_rank}')
             dist.init_process_group(
                 backend=args.distributed_backend,
                 init_method=args.distributed_init_method,

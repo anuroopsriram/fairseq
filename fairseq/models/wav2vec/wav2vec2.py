@@ -293,6 +293,10 @@ class Wav2Vec2Model(BaseFairseqModel):
             "--conv-bias", action="store_true", help="include bias in conv encoder"
         )
 
+        parser.add_argument(
+            "--in-d", type=int, default=1, help="number of input channels"
+        )
+
     def __init__(self, args):
         super().__init__()
         self.args = args
@@ -305,6 +309,7 @@ class Wav2Vec2Model(BaseFairseqModel):
             dropout=0.0,
             mode=args.extractor_mode,
             conv_bias=args.conv_bias,
+            in_d=args.in_d,
         )
 
         self.post_extract_proj = (
@@ -681,6 +686,7 @@ class ConvFeatureExtractionModel(nn.Module):
         dropout: float = 0.0,
         mode: str = "default",
         conv_bias: bool = False,
+        in_d: int = 1,
     ):
         super().__init__()
 
@@ -725,7 +731,6 @@ class ConvFeatureExtractionModel(nn.Module):
             else:
                 return nn.Sequential(make_conv(), nn.Dropout(p=dropout), nn.GELU())
 
-        in_d = 1
         self.conv_layers = nn.ModuleList()
         for i, cl in enumerate(conv_layers):
             assert len(cl) == 3, "invalid conv definition: " + str(cl)
@@ -745,9 +750,12 @@ class ConvFeatureExtractionModel(nn.Module):
             in_d = dim
 
     def forward(self, x):
-
-        # BxT -> BxCxT
-        x = x.unsqueeze(1)
+        if x.dim() == 2:
+            # BxT -> BxCxT
+            x = x.unsqueeze(1)
+        else:
+            # BxTxC -> BxCxT
+            x = x.permute(0, 2, 1).contiguous()
 
         for conv in self.conv_layers:
             x = conv(x)

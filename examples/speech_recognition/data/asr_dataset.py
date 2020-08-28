@@ -5,6 +5,8 @@
 
 import os
 import numpy as np
+import torch
+
 from fairseq.data import FairseqDataset
 
 from . import data_utils
@@ -77,7 +79,6 @@ class AsrDataset(FairseqDataset):
             frame_shift=self.frame_shift
         )
         output_cmvn = data_utils.apply_mv_norm(output)
-
         return {"id": index, "data": [output_cmvn.detach(), tgt_item]}
 
     def __len__(self):

@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 import submit
 
 base_params = {

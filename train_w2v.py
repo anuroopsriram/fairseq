@@ -53,22 +53,25 @@ base_params = {
 }
 
 
-def w2v_base_250K(args, params):
-    args.name = 'w2v.base.250K'
+def w2v_base_250k(args, params):
+    args.name = 'w2v.base.250k'
+    args.nodes = 4
     params['total-num-update'] = 2500000
     params['max-update'] = 2500000
     return args, params
 
 
-def w2v_base_400K(args, params):
+def w2v_base_400k(args, params):
     args.name = 'w2v.base.400K'
+    args.nodes = 8
     params['total-num-update'] = 400000
     params['max-update'] = 400000
     return args, params
 
 
-def w2v_conformer_250K(args, params):
-    args.name = 'w2v.conformer.250K'
+def w2v_conformer_250k(args, params):
+    args.name = 'w2v.conformer.250k'
+    args.nodes = 4
     params = params.update({
         'transformer-type': 'conformer',
         'encoder-layers': 17,
@@ -81,8 +84,9 @@ def w2v_conformer_250K(args, params):
     return args, params
 
 
-def w2v_conformer_400K(args, params):
-    args.name = 'w2v.conformer.400K'
+def w2v_conformer_400k(args, params):
+    args.name = 'w2v.conformer.400k'
+    args.nodes = 4
     params = params.update({
         'transformer-type': 'conformer',
         'encoder-layers': 17,
@@ -98,7 +102,7 @@ def w2v_conformer_400K(args, params):
 #### Sweeps
 
 @submit.register_sweep
-def sweep_w2v_conformer_250K_12lyrs(base_args):
+def sweep_w2v_conformer_250k_12lyrs(base_args):
     dims = [640]
     lrs = [2e-4, 5e-4, 1e-3]
     encoder_layers = [12]
@@ -116,11 +120,11 @@ def sweep_w2v_conformer_250K_12lyrs(base_args):
         for lr in lrs
         for enc_lyrs in encoder_layers
     ]
-    submit.run_sweeps(w2v_base_250K, base_args, base_params, param_sweeps)
+    submit.run_sweeps(w2v_base_250k, base_args, base_params, param_sweeps)
 
 
 @submit.register_sweep
-def sweep_w2v_conformer_400K_17lyrs(base_args):
+def sweep_w2v_conformer_400k_17lyrs(base_args):
     dims = [512]
     lrs = [2e-4, 5e-4, 1e-3]
     encoder_layers = [17]
@@ -138,7 +142,7 @@ def sweep_w2v_conformer_400K_17lyrs(base_args):
         for lr in lrs
         for enc_lyrs in encoder_layers
     ]
-    submit.run_sweeps(w2v_base_400K, base_args, base_params, param_sweeps)
+    submit.run_sweeps(w2v_base_400k, base_args, base_params, param_sweeps)
 
 
 if __name__ == '__main__':

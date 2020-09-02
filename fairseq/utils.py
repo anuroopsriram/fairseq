@@ -424,6 +424,10 @@ def get_perplexity(loss, round=2, base=2):
         return float('inf')
 
 
+def swish(x):
+    return x * torch.sigmoid(x)
+
+
 def deprecation_warning(message, stacklevel=3):
     # don't use DeprecationWarning, since it's ignored by default
     warnings.warn(message, stacklevel=stacklevel)
@@ -444,6 +448,8 @@ def get_activation_fn(activation: str) -> Callable:
         return gelu_accurate
     elif activation == "tanh":
         return torch.tanh
+    elif activation == "swish":
+        return swish
     elif activation == "linear":
         return lambda x: x
     else:

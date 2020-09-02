@@ -144,6 +144,13 @@ def add_common_args(parser):
         help="probability of dropping a layer in wav2vec 2.0",
     )
 
+    parser.add_argument(
+        "--no-expand-ffn",
+        default=False,
+        action='store_true',
+        help="Conformer FFN expansion",
+    )
+
 
 @register_model("wav2vec_ctc")
 class Wav2VecCtc(BaseFairseqModel):
@@ -324,6 +331,7 @@ class Wav2VecEncoder(FairseqEncoder):
             "no_mask_channel_overlap": args.no_mask_channel_overlap,
             "encoder_layerdrop": args.layerdrop,
             "feature_grad_mult": args.feature_grad_mult,
+            'no_expand_ffn': args.no_expand_ffn,
         }
 
         if getattr(args, "w2v_args", None) is None:
@@ -331,6 +339,8 @@ class Wav2VecEncoder(FairseqEncoder):
                 args.w2v_path, arg_overrides
             )
             w2v_args = state["args"]
+            print('overrides', arg_overrides)
+            print('w2v_args', w2v_args)
         else:
             state = None
             w2v_args = args.w2v_args

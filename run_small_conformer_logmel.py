@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import submit
 
 base_params = {
@@ -12,7 +14,7 @@ base_params = {
     'log-keys': ["prob_perplexity","code_perplexity","temp"],
     'quantize-targets': True,
     'extractor-mode': 'default',
-    'conv-feature-layers': [(512, 10, 5)] + [(512, 3, 2)] * 4 + [(512,2,2)] * 2,
+    'conv-feature-layers': [(512, 1, 2)] + [(512, 1, 1)] * 4 + [(512, 1, 1)] * 2,
     'final-dim': 256,
     'latent-vars': 320,
     'latent-groups': 2,
@@ -44,16 +46,47 @@ base_params = {
     'attention-dropout': 0.1,
     'weight-decay': 0.01,
     'max-tokens': 1400000,
-    'max-update': 250000,
+    'max-update': 400000,
     'skip-invalid-size-inputs-valid-test': True,
     'ddp-backend no_c10d': True,
     'update-freq': 1,
+
+    'transformer-type': 'conformer',
+    'encoder-layers': 17,
+    'encoder-embed-dim': 768,
+    'encoder-ffn-embed-dim': 768,
+    'encoder-attention-heads': 8,
+
+    'logmel': True,
+    'in-d': 80,
 }
 
 
 if __name__ == '__main__':
     parser = submit.create_parser()
-    args = parser.parse_args()
+    base_args = parser.parse_args()
+
     # if args.nodes != 4:
     #     base_params['update-freq'] = 32 / args.nodes / 8
-    submit.main(args, base_params, 'unlab')
+
+    dims = [512, 640]
+    lrs = [2e-4, 5e-4, 1e-3]
+    param_sweeps = [
+        (
+            f'dim{dim}.lr{lr}',
+            {
+                'encoder-embed-dim': dim,
+                'encoder-ffn-embed-dim': dim,
+                'lr': lr,
+            },
+        )
+        for dim in dims
+        for lr in lrs
+    ]
+    for name, overrides in param_sweeps:
+        args = deepcopy(base_args)
+        args.name = f'{base_args.name}/{name}'
+        params = deepcopy(base_params)
+        params.update(**overrides)
+        print(args.name, overrides)
+        submit.main(args, params, 'unlab')

@@ -245,3 +245,44 @@ class RelLearnableMultiHeadAttn(RelMultiHeadAttn):
             output = self.layer_norm(w + attn_out)
 
         return output, attn_weights
+
+
+class RelativePositionalMultiHeadAttention(nn.Module):
+    def __init__(self, dimension, num_att_heads, num_relpos_embeds, lin_dropout, att_dropout):
+        super().__init__()
+        self.mha_attn = RelLearnableMultiHeadAttn(
+            n_head=num_att_heads,
+            d_model=dimension,
+            d_head=num_att_heads // dimension,
+            dropout=lin_dropout,
+            dropatt=att_dropout,
+            pre_lnorm=False
+        )
+        self.r_emb = nn.Parameter(
+            torch.Tensor(
+                num_relpos_embeds,
+                num_att_heads,
+                dimension // num_att_heads,
+            )
+        )
+        self.r_w_bias = nn.Parameter(
+            torch.Tensor(
+                num_att_heads, self.embedding_dim // num_att_heads
+            )
+        )
+        self.r_bias = nn.Parameter(
+            torch.Tensor(num_relpos_embeds, num_att_heads)
+        )
+        nn.init.normal_(self.r_emb, mean=0, std=0.02)
+        nn.init.constant_(self.r_w_bias, 0)
+        nn.init.constant_(self.r_bias, 0)
+
+    def forward(self, x, self_attn_padding_mask):
+        x, attn = self.mha_attn(
+            w=x,
+            r_emb=self.r_emb,
+            r_w_bias=self.r_w_bias,
+            r_bias=self.r_bias,
+            attn_mask=self_attn_padding_mask,
+        )
+        return x, attn

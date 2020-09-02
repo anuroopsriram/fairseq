@@ -9,7 +9,9 @@ import os
 
 def create_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('name', type=str)
+    # parser.add_argument('name', type=str)
+    parser.add_argument('sweep', type=str)
+    parser.add_argument('-N', '--name', type=str, default='')
     parser.add_argument('-d', '--data', type=Path, default='/checkpoint/anuroops/data/libris/')
     parser.add_argument('-l', '--logdir', type=Path, default='/checkpoint/anuroops/fairseq/wav2vec')
     parser.add_argument('-m', '--mem', type=int, default=400)
@@ -75,3 +77,27 @@ def main(args, base_params, data_dir):
         print('Submitted job:', job.job_id)
     else:
         run_local(cmd, args)
+
+
+def run_sweeps(func, base_args, base_params, sweeps, dataset='unlab'):
+    names = [name for name, _ in sweeps]
+    assert len(set(names)) == len(names), f'Names not unique: {names}'
+
+    base_args, base_params = func(base_args, base_params)
+    for name, overrides in sweeps:
+        args = deepcopy(base_args)
+        args.name = f'{args.name}/{name}'
+        params = deepcopy(base_params)
+        params.update(**overrides)
+        print(args.name, overrides)
+        main(args, params, dataset)
+
+
+sweep_funcs = {}
+
+def register_sweep(func):
+    sweep_funcs[func.__name__] = func
+
+
+def get_sweep_func(name):
+    return sweep_funcs[name]

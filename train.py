@@ -6,7 +6,7 @@
 """
 Legacy entry point. Use fairseq_cli/train.py or fairseq-train instead.
 """
-
+import numpy as np
 from fairseq_cli.train import cli_main
 
 

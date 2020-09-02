@@ -93,6 +93,12 @@ class AudioPretrainingTask(FairseqTask):
             type=float,
             help="Frame length to compute MEL filter banks",
         )
+        parser.add_argument(
+            "--specaug-prob",
+            default=0.,
+            type=float,
+            help="prob of applying specaug",
+        )
 
     def __init__(self, args, source_dictionary=None):
         super().__init__(args)
@@ -127,6 +133,7 @@ class AudioPretrainingTask(FairseqTask):
                 num_mel_bins=self.args.num_mel_bins,
                 frame_length=self.args.frame_length,
                 frame_shift=self.args.frame_shift,
+                specaug_prob=self.args.specaug_prob,
             )
         else:
             self.datasets[split] = FileAudioDataset(

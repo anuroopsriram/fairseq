@@ -297,6 +297,44 @@ class Wav2Vec2Model(BaseFairseqModel):
             "--in-d", type=int, default=1, help="number of input channels"
         )
 
+        # Conformer Arguments
+        parser.add_argument(
+            "--transformer-type",
+            choices=('transformer', 'conformer'),
+            help="whether to use conformer or transformer layers",
+            default="transformer"
+        )
+        parser.add_argument(
+            "--activation-fn1",
+            choices=utils.get_available_activation_fns(),
+            help="activation function to use",
+            default="swish"
+        )
+        parser.add_argument(
+            "--activation-fn2",
+            choices=utils.get_available_activation_fns(),
+            help="activation function to use",
+            default="gelu"
+        )
+        parser.add_argument(
+            "--conformer-kernel-size",
+            type=int,
+            help="convolution kernel size in conformer",
+            default=32,
+        )
+        parser.add_argument(
+            "--ffn-scale",
+            type=float,
+            help="ffn scale",
+            default=0.5
+        )
+        parser.add_argument(
+            "--no-expand-ffn",
+            default=True,
+            action='store_true',
+            help="Conformer FFN expansion",
+        )
+
     def __init__(self, args):
         super().__init__()
         self.args = args
@@ -787,16 +825,7 @@ class TransformerEncoder(nn.Module):
 
         self.layers = nn.ModuleList(
             [
-                TransformerSentenceEncoderLayer(
-                    embedding_dim=self.embedding_dim,
-                    ffn_embedding_dim=args.encoder_ffn_embed_dim,
-                    num_attention_heads=args.encoder_attention_heads,
-                    dropout=self.dropout,
-                    attention_dropout=args.attention_dropout,
-                    activation_dropout=args.activation_dropout,
-                    activation_fn=args.activation_fn,
-                    layer_norm_first=args.layer_norm_first,
-                )
+                self.create_transformer_layer(args)
                 for _ in range(args.encoder_layers)
             ]
         )
@@ -806,6 +835,32 @@ class TransformerEncoder(nn.Module):
         self.layerdrop = args.encoder_layerdrop
 
         self.apply(init_bert_params)
+
+    def create_transformer_layer(self, args):
+        if args.transformer_type == 'transformer':
+            layer = TransformerSentenceEncoderLayer(
+                embedding_dim=self.embedding_dim,
+                ffn_embedding_dim=args.encoder_ffn_embed_dim,
+                num_attention_heads=args.encoder_attention_heads,
+                dropout=self.dropout,
+                attention_dropout=args.attention_dropout,
+                activation_dropout=args.activation_dropout,
+                activation_fn=args.activation_fn,
+                layer_norm_first=args.layer_norm_first,
+            )
+        elif args.transformer_type == 'conformer':
+            layer = ConformerEncoderLayer(
+                embedding_dim=self.embedding_dim,
+                num_attention_heads=args.encoder_attention_heads,
+                dropout=args.dropout,
+                attention_dropout=args.attention_dropout,
+                activation_fn1=args.activation_fn1,
+                activation_fn2=args.activation_fn2,
+                kern_size=args.conformer_kernel_size,
+                ffn_scale=args.ffn_scale,
+                no_expand_ffn=args.no_expand_ffn,
+            )
+        return layer
 
     def forward(self, x, padding_mask=None):
         x = self.extract_features(x, padding_mask)
@@ -953,6 +1008,116 @@ class TransformerSentenceEncoderLayer(nn.Module):
             x = residual + x
             x = self.final_layer_norm(x)
 
+        return x, attn
+
+
+class Lambda(nn.Module):
+    def __init__(self, func):
+        super().__init__()
+        self.func = func
+
+    def forward(self, x):
+        return self.func(x)
+
+
+class Permute(nn.Module):
+    def __init__(self, *dims):
+        super().__init__()
+        self.dims = dims
+
+    def forward(self, x):
+        return x.permute(*self.dims)
+
+
+class ConformerEncoderLayer(nn.Module):
+    def __init__(
+            self,
+            embedding_dim: int = 768,
+            num_attention_heads: float = 8,
+            dropout: float = 0.1,
+            attention_dropout: float = 0.1,
+            activation_fn1: str = "swish",
+            activation_fn2: str = "gelu",
+            kern_size: int = 32,
+            ffn_scale: float = 0.5,
+            no_expand_ffn=False,
+    ):
+        super().__init__()
+        self.embedding_dim = embedding_dim
+        self.num_attention_heads = num_attention_heads
+        self.dropout = dropout
+        self.attention_dropout = attention_dropout
+        self.kern_size = kern_size
+        self.ffn_scale = ffn_scale
+
+        pad = (kern_size + 1) // 2
+        self.activation_fn1 = utils.get_activation_fn(activation_fn1)
+        self.activation_fn2 = utils.get_activation_fn(activation_fn2)
+        embedding_dim_expand = embedding_dim if no_expand_ffn else embedding_dim * 4
+        self.ff1 = nn.Sequential(
+            nn.LayerNorm(embedding_dim),
+            nn.Linear(embedding_dim, embedding_dim_expand),
+            Lambda(self.activation_fn1),
+            nn.Dropout(dropout),
+            nn.Linear(embedding_dim_expand, embedding_dim),
+            nn.Dropout(dropout),
+        )
+        self.self_attn_layer_norm = nn.LayerNorm(embedding_dim)
+        self.self_attn = MultiheadAttention(
+            embedding_dim,
+            num_attention_heads,
+            dropout=attention_dropout,
+            self_attention=True,
+        )
+        self.self_attn_dropout = nn.Dropout(dropout)
+        self.conv = nn.Sequential(
+            nn.LayerNorm(embedding_dim),
+            Permute(1, 2, 0),  # T x B x C -> B x C x T
+            nn.Conv1d(embedding_dim, embedding_dim * 2, kernel_size=1),
+            Lambda(self.activation_fn2),
+            nn.Conv1d(embedding_dim * 2, embedding_dim * 2, kern_size,
+                      groups=embedding_dim, padding=pad),
+            SamePad(kern_size),
+            nn.BatchNorm1d(embedding_dim * 2),
+            Lambda(self.activation_fn1),
+            nn.Conv1d(embedding_dim * 2, embedding_dim, kernel_size=1),
+            nn.Dropout(dropout),
+            Permute(2, 0, 1),  # B x C x T -> T x B x C
+        )
+        self.ff2 = nn.Sequential(
+            nn.LayerNorm(embedding_dim),
+            nn.Linear(embedding_dim, embedding_dim_expand),
+            Lambda(self.activation_fn1),
+            nn.Dropout(dropout),
+            nn.Linear(embedding_dim_expand, embedding_dim),
+            nn.Dropout(dropout),
+        )
+        self.final_layer_norm = nn.LayerNorm(self.embedding_dim)
+
+    def forward(
+            self,
+            x: torch.Tensor,
+            self_attn_mask: torch.Tensor = None,
+            self_attn_padding_mask: torch.Tensor = None,
+            need_weights: bool = False,
+            att_args=None,
+    ):
+        # T x B x C
+        x = x + self.ffn_scale * self.ff1(x)
+        residual = x
+        # T x B x C
+        x = self.self_attn_layer_norm(x)
+        x, attn = self.self_attn(
+            query=x,
+            key=x,
+            value=x,
+            key_padding_mask=self_attn_padding_mask,
+            need_weights=need_weights,
+        )
+        x = residual + self.self_attn_dropout(x)
+        x = x + self.conv(x)
+        x = x + self.ffn_scale * self.ff2(x)
+        x = self.final_layer_norm(x)
         return x, attn
 
 

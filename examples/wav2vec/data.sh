@@ -143,3 +143,9 @@ curl https://dl.fbaipublicfiles.com/fairseq/wav2vec/dict.ltr.txt > ${DATAROOT}/l
 #
 ##bash examples/speech_recognition/datasets/prepare-librispeech.sh ${RAWDATA} ${PROCSUPDATA}
 #
+
+
+
+# COPY
+cp /checkpoint/abaevski/data/speech/libri/960h/wav2vec/raw/*.{lst,ltr,tsv,wrd,txt} /checkpoint/anuroops/data/libris/lab.960h/ -rf
+

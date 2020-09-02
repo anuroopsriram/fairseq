@@ -2,12 +2,15 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
-
+import math
+import numbers
 import os
 import logging
+from random import random
+
 import numpy as np
 import sys
+import cv2
 
 import torch
 import torch.nn.functional as F
@@ -215,7 +218,8 @@ class LogMelAudioDataset(FileAudioDataset):
             pad=False,
             num_mel_bins=80,
             frame_length=25.0,
-            frame_shift=10.0
+            frame_shift=10.0,
+            specaug_prob=0.
     ):
         super().__init__(
             manifest_path,
@@ -229,6 +233,10 @@ class LogMelAudioDataset(FileAudioDataset):
         self.num_mel_bins = num_mel_bins
         self.frame_length = frame_length
         self.frame_shift = frame_shift
+        self.transform = None
+        self.specaug_prob = specaug_prob
+        if specaug_prob > 0:
+            self.transform = SpecAugmentTransform()
 
     def postprocess(self, feats, curr_sample_rate):
         if feats.dim() == 2:
@@ -262,6 +270,10 @@ class LogMelAudioDataset(FileAudioDataset):
         ).astype(np.float32)
         fbank = feats.new(fbank)
         fbank = apply_mv_norm(fbank)
+        if self.transform is not None:
+            if random() < self.specaug_prob:
+                fbank = self.transform(fbank.numpy())
+                fbank = feats.new(fbank)
         return fbank
 
     def crop_to_max_size(self, wav, target_size):
@@ -312,3 +324,129 @@ class LogMelAudioDataset(FileAudioDataset):
         if self.pad:
             input["padding_mask"] = padding_mask
         return {"id": torch.LongTensor([s["id"] for s in samples]), "net_input": input}
+
+
+class SpecAugmentTransform:
+    """
+    Implementation of SpecAugment transform for acoustic features.
+    See ref: https://arxiv.org/pdf/1904.08779.pdf
+    """
+
+    def __init__(
+            self,
+            time_warp_W=0,
+            freq_mask_N=1,
+            freq_mask_F=27,
+            time_mask_N=10,
+            time_mask_T=10000,
+            time_mask_p=0.05,
+            mask_value=None,
+            add_noise=False,
+    ):
+        # Sanity checks
+        assert mask_value is None or isinstance(
+            mask_value, numbers.Number
+        ), "mask_value (type: {}) must be None or a number".format(type(mask_value))
+        if freq_mask_N > 0:
+            assert (
+                    freq_mask_F > 0
+            ), "freq_mask_F ({}) must be larger than 0 when doing freq masking.".format(
+                freq_mask_F
+            )
+        if time_mask_N > 0:
+            assert (
+                    time_mask_T > 0
+            ), "time_mask_T ({}) must be larger than 0 when doing time masking.".format(
+                time_mask_T
+            )
+
+        self.time_warp_W = time_warp_W
+        self.freq_mask_N = freq_mask_N
+        self.freq_mask_F = freq_mask_F
+        self.time_mask_N = time_mask_N
+        self.time_mask_T = time_mask_T
+        self.time_mask_p = time_mask_p
+        self.mask_value = mask_value if mask_value is None else float(mask_value)
+        self.add_noise = add_noise
+
+        if mask_value is None:
+            logger.info("mask_value is None, will use local mean for masking")
+
+    def __call__(self, spectrogram):
+        assert len(spectrogram.shape) == 2, "spectrogram must be a 2-D tensor."
+
+        distorted = spectrogram.copy()  # make a copy of input spectrogram.
+        num_frames = spectrogram.shape[0]  # or 'tau' in the paper.
+        num_freqs = spectrogram.shape[1]  # or 'miu' in the paper.
+        mask_value = self.mask_value
+
+        if mask_value is None:  # if no value was specified, use local mean.
+            mask_value = spectrogram.mean()
+
+        if num_frames == 0:
+            logger.warning("Empty input data, ignoring this sequence")
+            return spectrogram
+
+        if num_freqs < self.freq_mask_F:
+            if self.freq_mask_N > 0:
+                # If freq masking is on, this should not happen and need double check
+                # on feature dimension.
+                logger.warning(
+                    "Input sequence has {} spectrums while maximum ".format(num_freqs)
+                    + "{} spectrum will be distorted.".format(self.freq_mask_F)
+                    + " Ignoring this sequence."
+                )
+            # or else, freq masking is being off
+            return spectrogram
+
+        if self.time_warp_W > 0:
+            if 2 * self.time_warp_W >= num_frames:
+                logger.warning(
+                    "Time warpping skipped since 2*time_warp_W >= frame size"
+                )
+            else:
+                w0 = np.random.randint(self.time_warp_W, num_frames - self.time_warp_W)
+                w = np.random.randint(0, self.time_warp_W)
+                upper, lower = distorted[:w0, :], distorted[w0:, :]
+                upper = cv2.resize(
+                    upper, dsize=(num_freqs, w0 + w), interpolation=cv2.INTER_LINEAR
+                )
+                lower = cv2.resize(
+                    lower,
+                    dsize=(num_freqs, num_frames - w0 - w),
+                    interpolation=cv2.INTER_LINEAR,
+                )
+                distorted = np.concatenate((upper, lower), axis=0)
+
+        for _i in range(self.freq_mask_N):
+            f = np.random.randint(0, self.freq_mask_F)
+            f0 = np.random.randint(0, num_freqs - f)
+            if f != 0:
+                distorted[:, f0: f0 + f] = mask_value
+
+        max_time_mask_T = min(
+            self.time_mask_T, math.floor(num_frames * self.time_mask_p)
+        )
+        if max_time_mask_T < 1:
+            if self.time_mask_N > 0:  # If time masking is on
+                logger.warning(
+                    "Input sequence has {} frames while maximum ".format(num_frames)
+                    + "{} frames will be distorted.".format(max_time_mask_T)
+                    + " Ignoring time masking."
+                )
+            # or else time masking is off
+            return distorted
+
+        # time_mask_N = np.random.randint(0, self.time_mask_N)
+        time_mask_N = self.time_mask_N
+        for _i in range(time_mask_N):
+            t = np.random.randint(0, max_time_mask_T)
+            t0 = np.random.randint(0, num_frames - t)
+            if t != 0:
+                distorted[t0: t0 + t, :] = mask_value
+                if self.add_noise:
+                    distorted[t0: t0 + t, :] += np.random.normal(
+                        0, 1, size=(t, distorted.shape[1])
+                    )
+
+        return distorted

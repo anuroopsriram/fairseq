@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import submit
 
 base_params = {
@@ -22,7 +24,7 @@ base_params = {
     'adam-betas': (0.9,0.98),
     'adam-eps': 1e-06,
     'lr-scheduler': 'polynomial_decay',
-    'total-num-update': 250000,
+    'total-num-update': 400000,
     'lr': 0.0005,
     'warmup-updates': 32000,
     'mask-length': 10,
@@ -44,16 +46,48 @@ base_params = {
     'attention-dropout': 0.1,
     'weight-decay': 0.01,
     'max-tokens': 1400000,
-    'max-update': 250000,
+    'max-update': 400000,
     'skip-invalid-size-inputs-valid-test': True,
     'ddp-backend no_c10d': True,
     'update-freq': 1,
+
+    'transformer-type': 'conformer',
+    'encoder-layers': 17,
+    'encoder-embed-dim': 768,
+    'encoder-ffn-embed-dim': 768,
+    'encoder-attention-heads': 8,
 }
 
 
 if __name__ == '__main__':
     parser = submit.create_parser()
-    args = parser.parse_args()
-    # if args.nodes != 4:
-    #     base_params['update-freq'] = 32 / args.nodes / 8
-    submit.main(args, base_params, 'unlab')
+    base_args = parser.parse_args()
+
+    # dims = [512, 640]
+    lrs = [2e-4, 5e-4, 1e-3]
+    # dims = [512]
+
+    dims = [640]
+    encoder_layers = [12]
+
+    param_sweeps = [
+        (
+            f'dim{dim}.lr{lr}',
+            {
+                'encoder-embed-dim': dim,
+                'encoder-ffn-embed-dim': dim,
+                'lr': lr,
+                'encoder-layers': enc_lyrs,
+            },
+        )
+        for dim in dims
+        for lr in lrs
+        for enc_lyrs in encoder_layers
+    ]
+    for name, overrides in param_sweeps:
+        args = deepcopy(base_args)
+        args.name = f'{base_args.name}/{name}'
+        params = deepcopy(base_params)
+        params.update(**overrides)
+        print(args.name, overrides)
+        submit.main(args, params, 'unlab')

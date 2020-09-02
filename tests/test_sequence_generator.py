@@ -293,7 +293,7 @@ class TestSequeneceGenerator(TestSequenceGeneratorBase):
         self.assertHypoScore(hypos[1][1], [0.3, 0.9, 0.01])
 
     def test_encoder_with_different_output_len(self):
-        args = self.model.encoder.args
+        args = self.model.encoder.base_args
         task = test_utils.TestTranslationTask.setup_task(args, self.tgt_dict, self.tgt_dict)
         reshaping_model = test_utils.TestReshapingModel.build_model(args, task)
         generator = SequenceGenerator([reshaping_model], self.tgt_dict, beam_size=2, max_len_b=2)
@@ -303,7 +303,7 @@ class TestSequeneceGenerator(TestSequenceGeneratorBase):
                 assert hypos[sent][beam]['attention'] is not None
 
     def test_generation_with_additional_input(self):
-        args = self.model.encoder.args
+        args = self.model.encoder.base_args
         task = test_utils.TestTranslationTask.setup_task(args, self.tgt_dict, self.tgt_dict)
         add_input_model = test_utils.TestAdditionalInputModel.build_model(args, task)
         generator = SequenceGenerator([add_input_model], self.tgt_dict, beam_size=2)

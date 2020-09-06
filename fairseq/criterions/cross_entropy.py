@@ -5,6 +5,7 @@
 
 import math
 
+import torch
 import torch.nn.functional as F
 
 from fairseq import metrics, utils
@@ -29,9 +30,13 @@ class CrossEntropyCriterion(FairseqCriterion):
         net_output = model(**sample['net_input'])
         loss, _ = self.compute_loss(model, net_output, sample, reduce=reduce)
         sample_size = sample['target'].size(0) if self.sentence_avg else sample['ntokens']
+        if 'ntokens' in sample:
+            ntokens = sample['ntokens']
+        else:
+            ntokens = sample['target_lengths'].sum()
         logging_output = {
             'loss': loss.data,
-            'ntokens': sample['ntokens'],
+            'ntokens': ntokens,
             'nsentences': sample['target'].size(0),
             'sample_size': sample_size,
         }
@@ -41,12 +46,19 @@ class CrossEntropyCriterion(FairseqCriterion):
         lprobs = model.get_normalized_probs(net_output, log_probs=True)
         lprobs = lprobs.view(-1, lprobs.size(-1))
         target = model.get_targets(sample, net_output).view(-1)
+        target = target.long()
+
         loss = F.nll_loss(
             lprobs,
             target,
             ignore_index=self.padding_idx,
             reduction='sum' if reduce else 'none',
         )
+        # print('Loss =', loss)
+        # if loss > 1e6:
+        #     probs = torch.exp(lprobs)
+        #     print(loss, probs.min(), probs.max())
+        #     print(probs)
         return loss, loss
 
     @staticmethod

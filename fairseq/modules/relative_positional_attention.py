@@ -253,7 +253,7 @@ class RelativePositionalMultiHeadAttention(nn.Module):
         self.mha_attn = RelLearnableMultiHeadAttn(
             n_head=num_att_heads,
             d_model=dimension,
-            d_head=num_att_heads // dimension,
+            d_head=dimension // num_att_heads,
             dropout=lin_dropout,
             dropatt=att_dropout,
             pre_lnorm=False
@@ -267,7 +267,7 @@ class RelativePositionalMultiHeadAttention(nn.Module):
         )
         self.r_w_bias = nn.Parameter(
             torch.Tensor(
-                num_att_heads, self.embedding_dim // num_att_heads
+                num_att_heads, dimension // num_att_heads
             )
         )
         self.r_bias = nn.Parameter(

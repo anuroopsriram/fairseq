@@ -269,11 +269,11 @@ class LogMelAudioDataset(FileAudioDataset):
             dither=0.
         ).astype(np.float32)
         fbank = feats.new(fbank)
-        fbank = apply_mv_norm(fbank)
         if self.transform is not None:
             if random() < self.specaug_prob:
                 fbank = self.transform(fbank.numpy())
                 fbank = feats.new(fbank)
+        fbank = apply_mv_norm(fbank)
         return fbank
 
     def crop_to_max_size(self, wav, target_size):

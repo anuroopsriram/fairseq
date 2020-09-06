@@ -11,7 +11,7 @@ def create_parser():
     parser = argparse.ArgumentParser()
     # parser.add_argument('name', type=str)
     parser.add_argument('sweep', type=str)
-    parser.add_argument('-N', '--name', type=str, default='')
+    parser.add_argument('-N', '--name', type=str, default=None)
     parser.add_argument('-d', '--data', type=Path, default='/checkpoint/anuroops/data/libris/')
     parser.add_argument('-l', '--logdir', type=Path, default='/checkpoint/anuroops/fairseq/wav2vec')
     parser.add_argument('-m', '--mem', type=int, default=400)
@@ -55,7 +55,13 @@ def run_local(cmd, args):
     os.system(cmd)
 
 
+def verify(params):
+    if 'w2v-path' in params:
+        assert Path(params['w2v-path']).exists()
+
+
 def main(args, base_params, data_dir):
+    verify(base_params)
     cmd = build_command(args, base_params, data_dir)
     print(' '.join(cmd))
 

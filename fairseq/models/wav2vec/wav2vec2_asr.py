@@ -6,14 +6,13 @@
 import contextlib
 import copy
 import math
-import numpy as np
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from fairseq import checkpoint_utils, tasks, utils
-
 from fairseq.models import (
     FairseqEncoder,
     FairseqIncrementalDecoder,
@@ -22,6 +21,7 @@ from fairseq.models import (
     register_model,
     register_model_architecture,
 )
+from fairseq.models.lstm import LSTMDecoder
 from fairseq.modules import LayerNorm, PositionalEmbedding, TransformerDecoderLayer
 
 
@@ -264,6 +264,27 @@ class TransformerModel(FairseqEncoderDecoderModel):
             help="dropout probability after activation in FFN inside the decoder",
         )
 
+        parser.add_argument(
+            "--w2v-args",
+            type=dict,
+            default=None
+        )
+        parser.add_argument(
+            "--decoder-type",
+            choices=['transformer', 'lstm'],
+            default='transformer'
+        )
+        parser.add_argument(
+            "--lstm-hidden-size",
+            default=1024,
+            type=int,
+        )
+        parser.add_argument(
+            "--num-lstm-layers",
+            default=1,
+            type=int,
+        )
+
         # fmt: on
 
     @classmethod
@@ -298,7 +319,24 @@ class TransformerModel(FairseqEncoderDecoderModel):
 
     @classmethod
     def build_decoder(cls, args, tgt_dict, embed_tokens):
-        return TransformerDecoder(args, tgt_dict, embed_tokens)
+        if args.decoder_type == 'transformer':
+            return TransformerDecoder(args, tgt_dict, embed_tokens)
+        elif args.decoder_type == 'lstm':
+            return LSTMDecoder(
+                tgt_dict,
+                embed_dim=args.decoder_embed_dim,
+                hidden_size=args.lstm_hidden_size,
+                out_embed_dim=embed_tokens.embedding_dim,
+                num_layers=args.num_lstm_layers,
+                dropout_in=args.decoder_dropout,
+                dropout_out=args.decoder_dropout,
+                attention=True,
+                encoder_output_units=embed_tokens.embedding_dim,
+                share_input_output_embed=args.share_decoder_input_output_embed,
+                max_target_positions=args.max_target_positions,
+            )
+        else:
+            raise ValueError
 
     def forward(self, **kwargs):
         encoder_out = self.encoder(tbc=False, **kwargs)

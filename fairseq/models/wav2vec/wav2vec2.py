@@ -13,6 +13,8 @@ import torch.nn.functional as F
 
 from typing import List, Tuple
 
+from fairseq.modules.relative_positional_attention import RelativePositionalMultiHeadAttention
+
 from fairseq import utils
 from fairseq.data.data_utils import compute_mask_indices
 from fairseq.models import BaseFairseqModel, register_model, register_model_architecture
@@ -330,9 +332,24 @@ class Wav2Vec2Model(BaseFairseqModel):
         )
         parser.add_argument(
             "--no-expand-ffn",
-            default=True,
+            default=False,
             action='store_true',
             help="Conformer FFN expansion",
+        )
+        parser.add_argument(
+            '--use-rel-posn-mha',
+            default=False,
+            action='store_true'
+        )
+        parser.add_argument(
+            '--num-relpos-embeds',
+            default=768,
+            type=int
+        )
+        parser.add_argument(
+            '--lin-dropout',
+            default=0.1,
+            type=float
         )
 
     def __init__(self, args):
@@ -859,6 +876,9 @@ class TransformerEncoder(nn.Module):
                 kern_size=args.conformer_kernel_size,
                 ffn_scale=args.ffn_scale,
                 no_expand_ffn=args.no_expand_ffn,
+                use_rel_posn_mha=args.use_rel_posn_mha,
+                num_relpos_embeds=args.num_relpos_embeds,
+                lin_dropout=args.lin_dropout,
             )
         return layer
 
@@ -1041,6 +1061,9 @@ class ConformerEncoderLayer(nn.Module):
             kern_size: int = 32,
             ffn_scale: float = 0.5,
             no_expand_ffn=False,
+            use_rel_posn_mha=False,
+            num_relpos_embeds=768,
+            lin_dropout=0.1,
     ):
         super().__init__()
         self.embedding_dim = embedding_dim
@@ -1049,6 +1072,7 @@ class ConformerEncoderLayer(nn.Module):
         self.attention_dropout = attention_dropout
         self.kern_size = kern_size
         self.ffn_scale = ffn_scale
+        self.use_rel_posn_mha = use_rel_posn_mha
 
         pad = (kern_size + 1) // 2
         self.activation_fn1 = utils.get_activation_fn(activation_fn1)
@@ -1063,12 +1087,21 @@ class ConformerEncoderLayer(nn.Module):
             nn.Dropout(dropout),
         )
         self.self_attn_layer_norm = nn.LayerNorm(embedding_dim)
-        self.self_attn = MultiheadAttention(
-            embedding_dim,
-            num_attention_heads,
-            dropout=attention_dropout,
-            self_attention=True,
-        )
+        if use_rel_posn_mha:
+            self.self_attn = RelativePositionalMultiHeadAttention(
+                embedding_dim,
+                num_attention_heads,
+                num_relpos_embeds=num_relpos_embeds,
+                lin_dropout=lin_dropout,
+                att_dropout=attention_dropout,
+            )
+        else:
+            self.self_attn = MultiheadAttention(
+                embedding_dim,
+                num_attention_heads,
+                dropout=attention_dropout,
+                self_attention=True,
+            )
         self.self_attn_dropout = nn.Dropout(dropout)
         self.conv = nn.Sequential(
             nn.LayerNorm(embedding_dim),
@@ -1107,13 +1140,18 @@ class ConformerEncoderLayer(nn.Module):
         residual = x
         # T x B x C
         x = self.self_attn_layer_norm(x)
-        x, attn = self.self_attn(
-            query=x,
-            key=x,
-            value=x,
-            key_padding_mask=self_attn_padding_mask,
-            need_weights=need_weights,
-        )
+        if self.use_rel_posn_mha:
+            x, attn = self.self_attn(
+                x, self_attn_padding_mask=self_attn_padding_mask
+            )
+        else:
+            x, attn = self.self_attn(
+                query=x,
+                key=x,
+                value=x,
+                key_padding_mask=self_attn_padding_mask,
+                need_weights=need_weights,
+            )
         x = residual + self.self_attn_dropout(x)
         x = x + self.conv(x)
         x = x + self.ffn_scale * self.ff2(x)

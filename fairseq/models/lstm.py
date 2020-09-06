@@ -356,7 +356,7 @@ class LSTMDecoder(FairseqIncrementalDecoder):
         encoder_output_units=512, pretrained_embed=None,
         share_input_output_embed=False, adaptive_softmax_cutoff=None,
         max_target_positions=DEFAULT_MAX_TARGET_POSITIONS,
-        residuals=False,
+        residuals=False, zero_decoder_start=False
     ):
         super().__init__(dictionary)
         self.dropout_in_module = FairseqDropout(dropout_in, module_name=self.__class__.__name__)
@@ -367,6 +367,8 @@ class LSTMDecoder(FairseqIncrementalDecoder):
         self.max_target_positions = max_target_positions
         self.residuals = residuals
         self.num_layers = num_layers
+        self.embed_dim = embed_dim
+        self.zero_decoder_start = zero_decoder_start
 
         self.adaptive_softmax = None
         num_embeddings = len(dictionary)
@@ -435,6 +437,7 @@ class LSTMDecoder(FairseqIncrementalDecoder):
         # get outputs from encoder
         if encoder_out is not None:
             encoder_outs = encoder_out[0]
+            encoder_outs = encoder_out.transpose(0, 1)  # BxTxC --> TxBxC
             encoder_hiddens = encoder_out[1]
             encoder_cells = encoder_out[2]
             encoder_padding_mask = encoder_out[3]
@@ -461,13 +464,22 @@ class LSTMDecoder(FairseqIncrementalDecoder):
         if incremental_state is not None and len(incremental_state) > 0:
             prev_hiddens, prev_cells, input_feed = self.get_cached_state(incremental_state)
         elif encoder_out is not None:
-            # setup recurrent cells
-            prev_hiddens = [encoder_hiddens[i] for i in range(self.num_layers)]
-            prev_cells = [encoder_cells[i] for i in range(self.num_layers)]
-            if self.encoder_hidden_proj is not None:
-                prev_hiddens = [self.encoder_hidden_proj(y) for y in prev_hiddens]
-                prev_cells = [self.encoder_cell_proj(y) for y in prev_cells]
-            input_feed = x.new_zeros(bsz, self.hidden_size)
+            if self.zero_decoder_start:
+                prev_hiddens, prev_cells = [], []
+                for i in range(self.num_layers):
+                    # in_size = self.encoder_output_units + self.embed_dim if i == 0 else self.hidden_size
+                    in_size = self.hidden_size
+                    prev_hiddens.append(x.new_zeros(bsz, in_size))
+                    prev_cells.append(x.new_zeros(bsz, in_size))
+                input_feed = x.new_zeros(bsz, self.hidden_size)
+            else:
+                # setup recurrent cells
+                prev_hiddens = [encoder_hiddens[i] for i in range(self.num_layers)]
+                prev_cells = [encoder_cells[i] for i in range(self.num_layers)]
+                if self.encoder_hidden_proj is not None:
+                    prev_hiddens = [self.encoder_hidden_proj(y) for y in prev_hiddens]
+                    prev_cells = [self.encoder_cell_proj(y) for y in prev_cells]
+                input_feed = x.new_zeros(bsz, self.hidden_size)
         else:
             # setup zero cells, since there is no encoder
             zero_state = x.new_zeros(bsz, self.hidden_size)

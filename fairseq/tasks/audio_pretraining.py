@@ -133,7 +133,7 @@ class AudioPretrainingTask(FairseqTask):
                 num_mel_bins=self.args.num_mel_bins,
                 frame_length=self.args.frame_length,
                 frame_shift=self.args.frame_shift,
-                specaug_prob=self.args.specaug_prob,
+                specaug_prob=(self.args.specaug_prob if split == 'train' else 0.),
             )
         else:
             self.datasets[split] = FileAudioDataset(

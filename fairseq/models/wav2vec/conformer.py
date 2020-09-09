@@ -211,7 +211,6 @@ class ConformerCtcModel(BaseFairseqModel):
             action='store_true',
         )
 
-
     def __init__(self, args, encoder):
         super().__init__()
         self.encoder = encoder
@@ -228,12 +227,12 @@ class ConformerCtcModel(BaseFairseqModel):
         if not hasattr(args, "max_target_positions"):
             args.max_target_positions = 2048
 
-        encoder = cls.build_encoder(args)
+        encoder = cls.build_encoder(args, task)
         return cls(args, encoder)
 
     @classmethod
-    def build_encoder(cls, args):
-        return ConformerEncoder(args)
+    def build_encoder(cls, args, task):
+        return ConformerEncoder(args, out_dim=len(task.target_dictionary))
 
     def forward(self, **kwargs):
         encoder_out, padding_mask = self.encoder(tbc=False, **kwargs)
@@ -545,7 +544,7 @@ class ConformerSeq2SeqModel(FairseqEncoderDecoderModel):
 
 
 class ConformerEncoder(FairseqEncoder):
-    def __init__(self, args):
+    def __init__(self, args, out_dim=None):
         self.args = args
         task = tasks.setup_task(args)
         super().__init__(task.source_dictionary)
@@ -570,9 +569,10 @@ class ConformerEncoder(FairseqEncoder):
         self.dropout_features = nn.Dropout(args.dropout_features)
         # final_dim = args.final_dim if args.final_dim > 0 else args.encoder_embed_dim
         self.encoder = TransformerEncoder(args)
+        self.layer_norm_init = LayerNorm(80)
         self.layer_norm = LayerNorm(self.embed)
         # d = w2v_args.encoder_embed_dim
-        # self.proj = Linear(args.encoder_embed_dim, args.lstm_hidden_size)
+        self.proj = Linear(args.encoder_embed_dim, out_dim or args.lstm_hidden_size)
 
     def set_num_updates(self, num_updates):
         """Set the number of parameters updates."""
@@ -580,9 +580,14 @@ class ConformerEncoder(FairseqEncoder):
         self.num_updates = num_updates
 
     def forward(self, source, padding_mask, tbc=True, **kwargs):
+        print('Norm1', torch.norm(source))
+        source = self.layer_norm_init(source)
+        print('Norm1.5', torch.norm(source))
         features = self.feature_extractor(source)
         features = features.transpose(1, 2)
+        print('Norm2', torch.norm(features))
         features = self.layer_norm(features)
+        print('Norm3', torch.norm(features))
 
         if padding_mask is not None:
             extra = padding_mask.size(1) % features.size(1)
@@ -593,9 +598,19 @@ class ConformerEncoder(FairseqEncoder):
 
         if self.post_extract_proj is not None:
             features = self.post_extract_proj(features)
+        print('Norm4', torch.norm(features))
         features = self.dropout_input(features)
+        print('Norm5', torch.norm(features))
         features = self.encoder(features, padding_mask=padding_mask)
-        # features = self.proj(features)
+        print('Norm6', torch.norm(features))
+
+        if tbc:
+            # B x T x C -> T x B x C
+            features = features.transpose(0, 1)
+
+        # features = self.dropout_features(features)
+        features = self.proj(features)
+        print('Norm7', torch.norm(features))
         return features, padding_mask
 
     def reorder_encoder_out(self, encoder_out, new_order):

@@ -115,6 +115,24 @@ def w2v_conformer_relpos_250k(args, params):
     return args, params
 
 
+def w2v_conformer_relpos_400k(args, params):
+    args.name = args.name or 'w2v.conformer.relpos.400k'
+    args.nodes = 8
+    params.update({
+        'transformer-type': 'conformer',
+        'encoder-layers': 17,
+        'encoder-embed-dim': 512,
+        'encoder-ffn-embed-dim': 512,
+        'encoder-attention-heads': 8,
+        'total-num-update': 400000,
+        'max-update': 400000,
+        'use-rel-posn-mha': True,
+        'num-relpos-embeds': 16,
+        'lin-dropout': 0.1,
+    })
+    return args, params
+
+
 #### Sweeps
 
 @submit.register_sweep
@@ -211,6 +229,31 @@ def sweep_w2v_conformer_relpos_250k_17lyrs(base_args):
         for rpemb in num_relpos_embeds
     ]
     submit.run_sweeps(w2v_conformer_relpos_250k, base_args, base_params, param_sweeps)
+
+
+@submit.register_sweep
+def sweep_w2v_conformer_relpos_400k_17lyrs(base_args):
+    dims = [512]
+    num_relpos_embeds = [16]
+    lrs = [2e-4, 5e-4]
+    encoder_layers = [17]
+    param_sweeps = [
+        (
+            f'dim{dim}.enclyrs{enc_lyrs}.lr{lr}.rpemb{rpemb}',
+            {
+                'encoder-embed-dim': dim,
+                'encoder-ffn-embed-dim': dim,
+                'lr': lr,
+                'encoder-layers': enc_lyrs,
+                'num-relpos-embeds': rpemb,
+            },
+        )
+        for dim in dims
+        for lr in lrs
+        for enc_lyrs in encoder_layers
+        for rpemb in num_relpos_embeds
+    ]
+    submit.run_sweeps(w2v_conformer_relpos_400k, base_args, base_params, param_sweeps)
 
 
 if __name__ == '__main__':

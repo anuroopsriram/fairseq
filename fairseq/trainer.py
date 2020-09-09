@@ -504,6 +504,11 @@ class Trainer(object):
                     num = self.data_parallel_world_size if self._sync_stats() else 1
                     self.optimizer.multiply_grads(num / sample_size)
 
+            # for name, param in self.model.named_parameters():
+            #     gnorm = torch.norm(param.grad)
+            #     print(name, gnorm.item())
+            # exit()
+
             with torch.autograd.profiler.record_function("clip-grads"):
                 # clip grads
                 grad_norm = self.clip_grad_norm(self.args.clip_norm)

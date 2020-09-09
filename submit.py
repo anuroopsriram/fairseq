@@ -92,7 +92,7 @@ def run_sweeps(func, base_args, base_params, sweeps, dataset='unlab'):
     base_args, base_params = func(base_args, base_params)
     for name, overrides in sweeps:
         args = deepcopy(base_args)
-        args.name = f'{args.name}/{name}'
+        args.name = f'{args.name}/{name}.{dataset}'
         params = deepcopy(base_params)
         params.update(**overrides)
         print(args.name, overrides)

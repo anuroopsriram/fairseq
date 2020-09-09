@@ -164,7 +164,6 @@ def sweep_w2v_conformer_250k(base_args):
             {
                 'w2v-path': checkpoint / 'checkpoint_best.pt',
                 'lr': lr,
-                'wer-args': wer_args,
             },
         )
         for checkpoint in checkpoints
@@ -213,6 +212,27 @@ def sweep_w2v_conformer_400k_4glm(base_args):
         for lr in lrs
     ]
     submit.run_sweeps(w2v_conformer_400k_lm, base_args, base_params, param_sweeps, dataset='lab.10h')
+
+
+@submit.register_sweep
+def sweep_w2v_conformer_400k_4glm_960h(base_args):
+    lrs = [2e-05]
+    checkpoints = [
+        Path('logs/w2v.conformer.400k/dim512.enclyrs17.lr0.0005'),
+    ]
+    param_sweeps = [
+        (
+            f'{checkpoint.name}/lr{lr}',
+            {
+                'w2v-path': checkpoint / 'checkpoint_best.pt',
+                'lr': lr,
+                'wer-args': wer_args,
+            },
+        )
+        for checkpoint in checkpoints
+        for lr in lrs
+    ]
+    submit.run_sweeps(w2v_conformer_400k_lm, base_args, base_params, param_sweeps, dataset='lab.960h')
 
 
 if __name__ == '__main__':

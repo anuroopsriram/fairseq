@@ -79,13 +79,15 @@ def conformer_medium_ctc_logmel(args, params):
     args.nodes = 4
     dim = 256
     params.update({
-        # 'conv-feature-layers': [(512, 7, 1)] * 2,
-        # 'clip-norm': 100.,
+        # 'conv-feature-layers': [(512, 1, 1)] * 2,
+        'conv-feature-layers': [(512, 7, 2)] * 1,
+        'clip-norm': 10.,
 
         'criterion': 'ctc',
         'arch': 'conformer_ctc',
 
-        'encoder-layers': 16,
+        'encoder-layers': 1,
+        # 'encoder-layers': 16,
         'encoder-embed-dim': dim,
         'encoder-attention-heads': 4,
 

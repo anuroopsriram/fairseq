@@ -184,16 +184,16 @@ class FileAudioDataset(RawAudioDataset):
         return {"id": index, "source": feats}
 
 
-def calc_mean_invstddev(feature):
+def calc_mean_invstddev(feature, eps = 1e-8):
     if len(feature.size()) != 2:
         raise ValueError("We expect the input feature to be 2-D tensor")
     mean = feature.mean(0)
     var = feature.var(0)
     # avoid division by ~zero
-    eps = 1e-8
-    if (var < eps).any():
-        return mean, 1.0 / (torch.sqrt(var) + eps)
-    return mean, 1.0 / torch.sqrt(var)
+    # if (var < eps).any():
+    #     return mean, 1.0 / (torch.sqrt(var) + eps)
+    # return mean, 1.0 / torch.sqrt(var)
+    return mean, 1.0 / (torch.sqrt(var) + eps)
 
 
 def apply_mv_norm(features):

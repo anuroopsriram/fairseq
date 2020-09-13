@@ -533,7 +533,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
         self._future_mask = torch.empty(0)
 
         self.dropout_module = FairseqDropout(args.dropout, module_name=self.__class__.__name__)
-        self.decoder_layerdrop = args.decoder_layerdrop
+        self.decoder_layerdrop = args.decoder_layerdrop if hasattr(args, 'decoder_layerdrop') else 0.
         self.share_input_output_embed = args.share_decoder_input_output_embed
 
         input_embed_dim = embed_tokens.embedding_dim

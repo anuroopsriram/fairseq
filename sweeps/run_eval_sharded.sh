@@ -44,8 +44,8 @@ else
   decoder=kenlm
 fi
 
-PYTHONPATH=/private/home/abaevski/fairseq-py-master python examples/speech_recognition/infer.py $data --task $task --seed 1 --nbest 1 --path $cp --gen-subset $split \
+echo "PYTHONPATH=/private/home/abaevski/fairseq-py-master python examples/speech_recognition/infer.py $data --task $task --seed 1 --nbest 1 --path $cp --gen-subset $split \
 --results-path $work_dir --w2l-decoder $decoder --lm-model $lm_model \
 --lexicon /checkpoint/abaevski/data/speech/libri/960h/wav2vec/raw/lexicon_$targets.lst --beam $beamsize --beam-threshold $beamscore --beam-size-token 100 \
 --lm-weight $lmweight --word-score $wordscore --sil-weight $silweight --criterion ctc  --labels $targets --max-tokens $max_toks --remove-bpe "$bpe" $normalize \
---shard-id $(expr ${SLURM_ARRAY_TASK_ID} - 1) --num-shards $num_shards
+--shard-id $(expr ${SLURM_ARRAY_TASK_ID} - 1) --num-shards $num_shards"

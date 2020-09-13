@@ -67,6 +67,28 @@ def w2v_base_400k(args, params):
     return args, params
 
 
+def w2v_large_600k(args, params):
+    # 317M params
+    args.name = args.name or 'w2v.large.600K'
+    args.nodes = 16
+    params.update({
+        'final-dim': 768,
+        'latent-temp': (2.0, 0.1, 0.999995),
+        'total-num-update': 600000,
+        'encoder-layerdrop': 0.,
+        'feature-grad-mult': 0.03,
+        'encoder-layers': 24,
+        'encoder-embed-dim': 1024,
+        'encoder-ffn-embed-dim': 4096,
+        'encoder-attention-heads': 16,
+        'max-sample-size': 320000,
+        'dropout': 0.0,
+        'max-tokens': 1200000,
+        'max-update': 600000,
+    })
+    return args, params
+
+
 def w2v_conformer_250k(args, params):
     args.name = args.name or 'w2v.conformer.250k'
     args.nodes = 4
@@ -133,6 +155,33 @@ def w2v_conformer_relpos_400k(args, params):
     return args, params
 
 
+def w2v_conformer_relpos_large_600k(args, params):
+    args.name = args.name or 'w2v.conformer.relpos.600K'
+    args.nodes = 16
+
+    params.update({
+        'final-dim': 768,  # Less than encoder-embed-dim??
+        'latent-temp': (2.0, 0.1, 0.999995),
+        'total-num-update': 600000,
+        'encoder-layerdrop': 0.,
+        'feature-grad-mult': 0.03,
+        'encoder-layers': 24,
+        'encoder-embed-dim': 720,
+        'max-sample-size': 320000,
+        'dropout': 0.0,
+        'max-tokens': 1200000,
+        'max-update': 600000,
+
+        'transformer-type': 'conformer',
+        'encoder-attention-heads': 8,
+
+        'use-rel-posn-mha': True,
+        'num-relpos-embeds': 16,
+        'lin-dropout': 0.,
+    })
+    return args, params
+
+
 #### Sweeps
 
 @submit.register_sweep
@@ -158,6 +207,21 @@ def sweep_w2v_base_250k_17lyrs(base_args):
         for enc_lyrs in encoder_layers
     ]
     submit.run_sweeps(w2v_base_250k, base_args, base_params, param_sweeps)
+
+
+@submit.register_sweep
+def sweep_w2v_large_600k(base_args):
+    lrs = [3e-4]
+    param_sweeps = [
+        (
+            f'lr{lr}',
+            {
+                'lr': lr,
+            },
+        )
+        for lr in lrs
+    ]
+    submit.run_sweeps(w2v_large_600k, base_args, base_params, param_sweeps)
 
 
 @submit.register_sweep
@@ -254,6 +318,21 @@ def sweep_w2v_conformer_relpos_400k_17lyrs(base_args):
         for rpemb in num_relpos_embeds
     ]
     submit.run_sweeps(w2v_conformer_relpos_400k, base_args, base_params, param_sweeps)
+
+
+@submit.register_sweep
+def sweep_w2v_conformer_relpos_large_600k(base_args):
+    lrs = [1e-4, 3e-4]
+    param_sweeps = [
+        (
+            f'lr{lr}',
+            {
+                'lr': lr,
+            },
+        )
+        for lr in lrs
+    ]
+    submit.run_sweeps(w2v_conformer_relpos_large_600k, base_args, base_params, param_sweeps)
 
 
 if __name__ == '__main__':

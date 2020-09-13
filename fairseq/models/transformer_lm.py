@@ -131,7 +131,7 @@ class TransformerLanguageModel(FairseqLanguageModel):
         # make sure all arguments are present in older models
         base_lm_architecture(args)
 
-        if args.decoder_layers_to_keep:
+        if hasattr(args, 'decoder_layers_to_keep') and args.decoder_layers_to_keep:
             args.decoder_layers = len(args.decoder_layers_to_keep.split(","))
 
         if getattr(args, 'max_target_positions', None) is None:
@@ -144,11 +144,14 @@ class TransformerLanguageModel(FairseqLanguageModel):
                 args.char_embedder_highway_layers,
             )
         elif args.adaptive_input:
+            quant_noise_pq = args.quant_noise_pq if hasattr(args, 'quant_noise_pq') else 0.
+            quant_noise_pq_block_size = args.quant_noise_pq_block_size \
+                if hasattr(args, 'quant_noise_pq_block_size') else 8
             embed_tokens = AdaptiveInput(
                 len(task.source_dictionary), task.source_dictionary.pad(), args.decoder_input_dim,
                 args.adaptive_input_factor, args.decoder_embed_dim,
                 options.eval_str_list(args.adaptive_input_cutoff, type=int),
-                args.quant_noise_pq, args.quant_noise_pq_block_size,
+                quant_noise_pq, quant_noise_pq_block_size,
             )
         else:
             embed_tokens = cls.build_embedding(args, task.source_dictionary, args.decoder_input_dim)

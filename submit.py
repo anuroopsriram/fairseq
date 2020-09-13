@@ -1,10 +1,9 @@
 import argparse
-import subprocess
+import os
 from copy import deepcopy
 from pathlib import Path
 
 import submitit
-import os
 
 
 def create_parser():
@@ -22,7 +21,20 @@ def create_parser():
     parser.add_argument('-w', '--workers', type=int, default=9)
     parser.add_argument('--port', type=int, default=13359)
     parser.add_argument('--submit', action='store_true', default=False)
+    parser.add_argument('--shards', type=int, default=1)
+    parser.add_argument('--no32gb', action='store_true')
     return parser
+
+
+def create_flags(cmd, params):
+    for param, value in sorted(params.items()):
+        if not isinstance(value, (bool, list, tuple)):
+            cmd.append(f'--{param} {value}')
+        elif isinstance(value, (list, tuple)):
+            cmd.append(f'--{param} "{value}"')
+        elif value:
+            cmd.append(f'--{param}')
+    return cmd
 
 
 def build_command(args, base_params, data_dir):
@@ -32,14 +44,18 @@ def build_command(args, base_params, data_dir):
     params['distributed-world-size'] = args.nodes * args.gpus
     params['distributed-port'] = args.port
     cmd = ['python', '-u', 'train.py', f'{args.data}/{data_dir}']
-    for param, value in sorted(params.items()):
-        if not isinstance(value, (bool, list, tuple)):
-            cmd.append(f'--{param} {value}')
-        elif isinstance(value, (list, tuple)):
-            cmd.append(f'--{param} "{value}"')
-        elif value:
-            cmd.append(f'--{param}')
-    return cmd
+    return create_flags(cmd, params)
+
+
+def build_infer_command(args, base_params, data_dir):
+    params = deepcopy(base_params)
+    modeldir = Path(params['path']).parent
+    data = params['gen-subset']
+    results_path = modeldir / f'res' / args.name / data
+    params['results-path'] = results_path
+    args.logdir = results_path
+    cmd = ['python', '-u', 'examples/speech_recognition/infer.py', str(args.data / data_dir)]
+    return create_flags(cmd, params)
 
 
 def run(cmd):
@@ -60,9 +76,13 @@ def verify(params):
         assert Path(params['w2v-path']).exists()
 
 
-def main(args, base_params, data_dir):
+def main(args, base_params, data_dir, task):
     verify(base_params)
-    cmd = build_command(args, base_params, data_dir)
+    assert task in ('train', 'infer')
+    if task == 'train':
+        cmd = build_command(args, base_params, data_dir)
+    elif task == 'infer':
+        cmd = build_infer_command(args, base_params, data_dir)
     print(' '.join(cmd))
 
     if args.submit:
@@ -77,29 +97,39 @@ def main(args, base_params, data_dir):
             gpus_per_node=args.gpus,
             # tasks_per_node=1,
             tasks_per_node=args.gpus,
-            slurm_constraint='volta32gb',
+            slurm_constraint='volta32gb' if not args.no32gb else '',
         )
-        job = executor.submit(run, cmd)
-        print('Submitted job:', job.job_id)
+        if args.shards > 1:
+            cmds = [[] + cmd + [f'--shard-id {i}'] for i in range(args.shards)]
+            jobs = executor.map_array(run, cmds)
+            print('Submitted jobs:', ', '.join([job.job_id for job in jobs]))
+        else:
+            job = executor.submit(run, cmd)
+            print('Submitted job:', job.job_id)
     else:
         run_local(cmd, args)
 
 
-def run_sweeps(func, base_args, base_params, sweeps, dataset='unlab'):
-    names = [name for name, _ in sweeps]
-    assert len(set(names)) == len(names), f'Names not unique: {names}'
+def run_sweeps(func, base_args, base_params, sweeps, dataset='unlab',
+               task='train', check_names=True):
+    if check_names:
+        names = [name for name, _ in sweeps]
+        assert len(set(names)) == len(names), f'Names not unique: {names}'
 
     base_args, base_params = func(base_args, base_params)
     for name, overrides in sweeps:
         args = deepcopy(base_args)
-        args.name = f'{args.name}/{name}.{dataset}'
+        if dataset:
+            name = name + '.' + dataset
+        args.name = f'{args.name}/{name}'
         params = deepcopy(base_params)
         params.update(**overrides)
         print(args.name, overrides)
-        main(args, params, dataset)
+        main(args, params, dataset, task)
 
 
 sweep_funcs = {}
+
 
 def register_sweep(func):
     sweep_funcs[func.__name__] = func

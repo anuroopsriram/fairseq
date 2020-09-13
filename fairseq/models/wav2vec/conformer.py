@@ -581,6 +581,7 @@ class ConformerEncoder(FairseqEncoder):
 
     def forward(self, source, padding_mask, tbc=True, **kwargs):
         print('Norm1', torch.norm(source))
+        print(source.min(), source.max(), source.mean(), source.shape)
         source = self.layer_norm_init(source)
         print('Norm1.5', torch.norm(source))
         features = self.feature_extractor(source)

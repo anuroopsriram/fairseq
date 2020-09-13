@@ -36,13 +36,17 @@ fi
 
 for split in "${splits[@]}"; do
   echo $split
-  jobid=$(sbatch --job-name eval_${prefix}_$split --parsable --array=1-$num_shards --gres gpu:1 --nodes 1 --ntasks-per-node 1 --cpus-per-task 4 --output $jobdir/stdout_%A_%a.log --error $jobdir/stderr_%A_%a.log --open-mode append --partition learnfair,dev --time 4320 --mem 30G --wrap "
-  srun --job-name eval_${prefix}_$split --output $jobdir/stdout_%A_%a.log --error $jobdir/stderr_%A_%a.log --open-mode append --unbuffered zsh $script_dir/run_eval_sharded.sh $cp $data $task $max_toks $jobdir $split $lmscore $wscore $silweight $targets $num_shards $normalize $lm &
-  wait \$!")
+#  jobid=$(sbatch --job-name eval_${prefix}_$split --parsable --array=1-$num_shards --gres gpu:1 --nodes 1 --ntasks-per-node 1 --cpus-per-task 4 --output $jobdir/stdout_%A_%a.log --error $jobdir/stderr_%A_%a.log --open-mode append --partition learnfair,dev --time 4320 --mem 30G --wrap "
+#  srun --job-name eval_${prefix}_$split --output $jobdir/stdout_%A_%a.log --error $jobdir/stderr_%A_%a.log --open-mode append --unbuffered zsh $script_dir/run_eval_sharded.sh $cp $data $task $max_toks $jobdir $split $lmscore $wscore $silweight $targets $num_shards $normalize $lm &
+#  wait \$!")
 
-  echo $jobid
+  echo "$script_dir/run_eval_sharded.sh $cp $data $task $max_toks $jobdir $split $lmscore $wscore $silweight $targets $num_shards $normalize $lm"
 
-  sbatch --job-name score_${prefix}_$split --dependency=afterok:$jobid --nodes 1 --ntasks-per-node 1 --cpus-per-task 1 --output $jobdir/stdout_%A_%a.log --error $jobdir/stderr_%A_%a.log --open-mode append --partition learnfair,dev --time 20 --mem-per-cpu 1G --wrap "
-    srun --job-name eval_${prefix}_$split --output $jobdir/stdout_%A_%a.log --error $jobdir/stderr_%A_%a.log --open-mode append --unbuffered zsh /private/home/abaevski/fairseq-py/sweeps/score_evals.sh $jobdir $split $num_shards $cp &
-    wait \$!"
+#  echo $jobid
+
+#  sbatch --job-name score_${prefix}_$split --dependency=afterok:$jobid --nodes 1 --ntasks-per-node 1 --cpus-per-task 1 --output $jobdir/stdout_%A_%a.log --error $jobdir/stderr_%A_%a.log --open-mode append --partition learnfair,dev --time 20 --mem-per-cpu 1G --wrap "
+#    srun --job-name eval_${prefix}_$split --output $jobdir/stdout_%A_%a.log --error $jobdir/stderr_%A_%a.log --open-mode append --unbuffered zsh /private/home/abaevski/fairseq-py/sweeps/score_evals.sh $jobdir $split $num_shards $cp &
+#    wait \$!"
+
+  echo "sweeps/score_evals.sh $jobdir $split $num_shards $cp"
 done

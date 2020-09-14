@@ -580,15 +580,15 @@ class ConformerEncoder(FairseqEncoder):
         self.num_updates = num_updates
 
     def forward(self, source, padding_mask, tbc=True, **kwargs):
-        print('Norm1', torch.norm(source))
-        print(source.min(), source.max(), source.mean(), source.shape)
+        # print('Norm1', torch.norm(source))
+        # print(source.min(), source.max(), source.mean(), source.shape)
         source = self.layer_norm_init(source)
-        print('Norm1.5', torch.norm(source))
+        # print('Norm1.5', torch.norm(source))
         features = self.feature_extractor(source)
         features = features.transpose(1, 2)
-        print('Norm2', torch.norm(features))
+        # print('Norm2', torch.norm(features))
         features = self.layer_norm(features)
-        print('Norm3', torch.norm(features))
+        # print('Norm3', torch.norm(features))
 
         if padding_mask is not None:
             extra = padding_mask.size(1) % features.size(1)

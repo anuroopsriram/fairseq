@@ -2,6 +2,14 @@ import os
 from argparse import ArgumentParser
 from pathlib import Path
 import jiwer
+import multiprocessing as mp
+
+counts = {
+    'dev_other': 2864,
+    'dev_clean': 2703,
+    'test_other': 2939,
+    'test_clean': 2620,
+}
 
 
 def compute_wer(hypfls, reffls):
@@ -16,23 +24,37 @@ def compute_wer(hypfls, reffls):
 
     hyps = _read(hypfls, True)
     refs = _read(reffls, True)
-    # print(len(hyps), len(refs))
-    # print(hyps[:5], refs[:5], sep='\n')
-    # print()
-    # print(hyps[-5:], refs[-5:], sep='\n')
-    # exit()
+
+    num = 0
+    name = str(hypfls[0])
+    for key, value in counts.items():
+        if key in name:
+            num = value
+            break
+
+    # assert 0 < num == len(hyps) and len(refs) == len(hyps)
+    if not (0 < num == len(hyps) and len(refs) == len(hyps)):
+        print('ERR', key, hypfls[0].parent, num, len(hyps), len(refs))
+        return -1
+
     wer = jiwer.wer(refs, hyps)
     return wer
 
 
 def evaluate_dir(direc):
+    print('Running', direc)
+
     hypofiles = list(sorted(direc.glob('[0-9]_hypo.word*')))
     reffiles = list(sorted(direc.glob('[0-9]_ref.word*')))
     if len(hypofiles) == 0:
         return
 
     wer = compute_wer(hypofiles, reffiles)
-    print(direc, wer)
+    if wer < 0:
+        return wer
+
+    with open(direc / 'score.txt', 'w') as fl:
+        print(direc, wer, file=fl)
     return wer
 
     # hypofile = direc / 'hypo.word.txt'
@@ -55,8 +77,16 @@ def evaluate(args):
     rundirs = args.dir.glob('run[0-9]*')
     direcs = [list(rundir.iterdir()) for rundir in rundirs]
     direcs = sum(direcs, [])
-    for direc in direcs:
-        evaluate_dir(direc)
+    with mp.Pool(1) as pool:
+        wers = pool.map(evaluate_dir, direcs)
+    print('\n'.join(wers))
+
+    # wers = []
+    # for direc in direcs:
+    #     wer = evaluate_dir(direc)
+    #     wers.append((wer, direc))
+    #     print(wer, direc)
+    # print('\n'.join(wers))
 
 
 if __name__ == '__main__':

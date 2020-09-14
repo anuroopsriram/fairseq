@@ -54,6 +54,7 @@ def rand_search_params(config, nsamples, start=0):
 
 def eval_4glm(args, params):
     args.name = args.name or 'kenlm'
+    args.no32gb = True
     args.nodes = 1
     args.gpus = 1
     args.timeout = 2

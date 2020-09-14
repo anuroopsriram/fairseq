@@ -43,7 +43,7 @@ base_params = {
     'num-lstm-layers': 1,
     'logmel': True,
     'in-d': 80,
-    'specaug-prob': 0.8,
+    'specaug-prob': 0.4,
     'conv-feature-layers': [(512, 7, 2)] * 2,
 }
 
@@ -95,8 +95,6 @@ def conformer_medium_ctc_logmel(args, params):
         'warmup-steps': 10000,
         'hold-steps': 128000,
         'decay-steps': 160000,
-
-        'specaug-prob': 0.
     })
     del params['lstm-hidden-size']
     del params['num-lstm-layers']
@@ -144,7 +142,7 @@ def sweep_conformer_medium_ctc_wave(base_args):
 @submit.register_sweep
 def sweep_conformer_medium_ctc_logmel(base_args):
     dim = 256
-    lrs = [0.05]
+    lrs = [0.05, 0.01]
     param_sweeps = [
         (
             f'medium.dim{dim}.lr{lr}',

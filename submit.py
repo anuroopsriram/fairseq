@@ -50,8 +50,9 @@ def build_command(args, base_params, data_dir):
 def build_infer_command(args, base_params, data_dir):
     params = deepcopy(base_params)
     modeldir = Path(params['path']).parent
-    data = params['gen-subset']
-    results_path = modeldir / f'res' / args.name / data
+    # data = params['gen-subset']
+    # results_path = modeldir / f'res' / args.name / data
+    results_path = modeldir / f'infer'
     params['results-path'] = results_path
     args.logdir = results_path
     cmd = ['python', '-u', 'examples/speech_recognition/infer.py', str(args.data / data_dir)]
@@ -121,7 +122,10 @@ def run_sweeps(func, base_args, base_params, sweeps, dataset='unlab',
         args = deepcopy(base_args)
         if dataset:
             name = name + '.' + dataset
-        args.name = f'{args.name}/{name}'
+        if task == 'train':
+            args.name = f'{args.name}/{name}'
+        else:
+            args.name = name
         params = deepcopy(base_params)
         params.update(**overrides)
         print(args.name, overrides)

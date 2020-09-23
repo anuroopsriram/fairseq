@@ -33,6 +33,22 @@ base_params = {
 }
 
 
+def emissions(args, params):
+    args.name = args.model.name
+    # args.no32gb = True
+    args.nodes = 1
+    args.gpus = 8
+    args.timeout = 2
+    split = params['gen-subset']
+    params.update({
+        'w2l-decoder': 'viterbi',
+        'path': str(args.model / 'checkpoint_best.pt'),
+        'dump-emissions': args.model / f'emissions_{split}.npy',
+        'num-shards': args.shards,
+    })
+    return args, params
+
+
 def uniform(a, b):
     return lambda: np.random.uniform(a, b)
 
@@ -82,6 +98,19 @@ def eval_translm(args, params):
         'num-shards': args.shards,
     })
     return args, params
+
+
+@submit.register_sweep
+def dump_emissions(base_args):
+    param_sweeps = []
+    for split in base_args.splits:
+        params = {
+            'gen-subset': split,
+            'dump-emissions': base_args.model / f'infer/emissions_{split}.npy',
+        }
+        param_sweeps.append((split, params))
+    submit.run_sweeps(emissions, base_args, base_params, param_sweeps,
+                      dataset='', task='infer', check_names=False)
 
 
 @submit.register_sweep

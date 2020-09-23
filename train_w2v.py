@@ -155,8 +155,8 @@ def w2v_conformer_relpos_400k(args, params):
     return args, params
 
 
-def w2v_conformer_relpos_large_600k(args, params):
-    args.name = args.name or 'w2v.conformer.relpos.600K'
+def w2v_conformer_relpos_large_21lyrs_600k(args, params):
+    args.name = args.name or 'w2v.conformer.relpos.600K.16nd'
     args.nodes = 16
 
     params.update({
@@ -165,8 +165,8 @@ def w2v_conformer_relpos_large_600k(args, params):
         'total-num-update': 600000,
         'encoder-layerdrop': 0.,
         'feature-grad-mult': 0.03,
-        'encoder-layers': 24,
-        'encoder-embed-dim': 720,
+        'encoder-layers': 21,
+        'encoder-embed-dim': 768,
         'max-sample-size': 320000,
         'dropout': 0.0,
         'max-tokens': 1200000,
@@ -178,6 +178,64 @@ def w2v_conformer_relpos_large_600k(args, params):
         'use-rel-posn-mha': True,
         'num-relpos-embeds': 16,
         'lin-dropout': 0.,
+    })
+    return args, params
+
+
+def w2v_conformer_relpos_large_21lyrs_600k_8nodes(args, params):
+    args.name = args.name or 'w2v.conformer.relpos.600K'
+    args.nodes = 8
+
+    params.update({
+        'final-dim': 768,  # Less than encoder-embed-dim??
+        'latent-temp': (2.0, 0.1, 0.999995),
+        'total-num-update': 600000,
+        'encoder-layerdrop': 0.,
+        'feature-grad-mult': 0.03,
+        'encoder-layers': 21,
+        'encoder-embed-dim': 768,
+        'max-sample-size': 320000,
+        'dropout': 0.0,
+        'max-tokens': 1200000,
+        'max-update': 600000,
+
+        'transformer-type': 'conformer',
+        'encoder-attention-heads': 8,
+
+        'use-rel-posn-mha': True,
+        'num-relpos-embeds': 16,
+        'lin-dropout': 0.,
+
+        'update-freq': 2,
+    })
+    return args, params
+
+
+def w2v_conformer_relpos_large_26lyrs_600k_8nodes(args, params):
+    args.name = args.name or 'w2v.conformer.relpos.600K'
+    args.nodes = 8
+
+    params.update({
+        'final-dim': 688,  # Less than encoder-embed-dim??
+        'latent-temp': (2.0, 0.1, 0.999995),
+        'total-num-update': 600000,
+        'encoder-layerdrop': 0.,
+        'feature-grad-mult': 0.03,
+        'encoder-layers': 24,
+        'encoder-embed-dim': 688,
+        'max-sample-size': 320000,
+        'dropout': 0.0,
+        'max-tokens': 1200000,
+        'max-update': 600000,
+
+        'transformer-type': 'conformer',
+        'encoder-attention-heads': 8,
+
+        'use-rel-posn-mha': True,
+        'num-relpos-embeds': 16,
+        'lin-dropout': 0.,
+
+        'update-freq': 2,
     })
     return args, params
 
@@ -321,7 +379,7 @@ def sweep_w2v_conformer_relpos_400k_17lyrs(base_args):
 
 
 @submit.register_sweep
-def sweep_w2v_conformer_relpos_large_600k(base_args):
+def sweep_w2v_conformer_relpos_large_21lyrs_600k(base_args):
     lrs = [1e-4, 3e-4]
     param_sweeps = [
         (
@@ -332,7 +390,38 @@ def sweep_w2v_conformer_relpos_large_600k(base_args):
         )
         for lr in lrs
     ]
-    submit.run_sweeps(w2v_conformer_relpos_large_600k, base_args, base_params, param_sweeps)
+    submit.run_sweeps(w2v_conformer_relpos_large_21lyrs_600k, base_args, base_params, param_sweeps)
+
+
+@submit.register_sweep
+def sweep_w2v_conformer_relpos_large_21lyrs_600k_8nodes(base_args):
+    # lrs = [1e-4, 3e-4]
+    lrs = [3e-4]
+    param_sweeps = [
+        (
+            f'lr{lr}',
+            {
+                'lr': lr,
+            },
+        )
+        for lr in lrs
+    ]
+    submit.run_sweeps(w2v_conformer_relpos_large_21lyrs_600k_8nodes, base_args, base_params, param_sweeps)
+
+
+@submit.register_sweep
+def sweep_w2v_conformer_relpos_large_26lyrs_600k_8nodes(base_args):
+    lrs = [1e-4, 3e-4]
+    param_sweeps = [
+        (
+            f'lr{lr}',
+            {
+                'lr': lr,
+            },
+        )
+        for lr in lrs
+    ]
+    submit.run_sweeps(w2v_conformer_relpos_large_26lyrs_600k_8nodes, base_args, base_params, param_sweeps)
 
 
 if __name__ == '__main__':

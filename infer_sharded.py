@@ -1,4 +1,5 @@
 from pathlib import Path
+from pprint import pprint
 
 import numpy as np
 
@@ -21,7 +22,8 @@ base_params = {
     'lexicon': '/checkpoint/abaevski/data/speech/libri/960h/wav2vec/raw/lexicon_ltr.lst',
 
     'remove-bpe': 'letter',
-    'max-tokens': 4000000,
+    # 'max-tokens': 4000000,
+    'max-tokens': 1000000,
     'normalize': True,
 
     'shard-id': 0,
@@ -41,6 +43,7 @@ def emissions(args, params):
     args.timeout = 2
     split = params['gen-subset']
     params.update({
+        'beam': 1,
         'w2l-decoder': 'viterbi',
         'path': str(args.model / 'checkpoint_best.pt'),
         'dump-emissions': args.model / f'emissions_{split}.npy',
@@ -114,6 +117,41 @@ def dump_emissions(base_args):
 
 
 @submit.register_sweep
+def fixed_eval_4glm(base_args):
+    name = f'lmwt{base_args.lm_weight}.wdsc{base_args.word_score}'
+    hyperparams = {
+        'lm-weight': base_args.lm_weight,
+        'word-score': base_args.word_score,
+    }
+    param_sweeps = []
+    for split in base_args.splits:
+        # for name, overrides in param_sweeps_rs:
+        params = {'gen-subset': split}
+        params.update(**hyperparams)
+        param_sweeps.append((name, params))
+
+    submit.run_sweeps(eval_4glm, base_args, base_params, param_sweeps,
+                      dataset='', task='infer', check_names=False)
+
+
+@submit.register_sweep
+def fixed_eval_translm(base_args):
+    name = f'lmwt{base_args.lm_weight}.wdsc{base_args.word_score}'
+    hyperparams = {
+        'lm-weight': base_args.lm_weight,
+        'word-score': base_args.word_score,
+    }
+    param_sweeps = []
+    for split in base_args.splits:
+        params = {'gen-subset': split}
+        params.update(**hyperparams)
+        param_sweeps.append((name, params))
+
+    submit.run_sweeps(eval_translm, base_args, base_params, param_sweeps,
+                      dataset='', task='infer', check_names=False)
+
+
+@submit.register_sweep
 def randsearch_eval_4glm(base_args):
     config = {
         'lm-weight': uniform(0, 4),
@@ -159,6 +197,10 @@ if __name__ == '__main__':
     parser.add_argument('--nsamples', type=int, default=10)
     parser.add_argument('--start', type=int, default=0)
     parser.add_argument('--splits', type=str, nargs='*', default=data_splits)
+
+    parser.add_argument('--lm_weight', type=float, required=False)
+    parser.add_argument('--word_score', type=float, required=False)
+
     parser.set_defaults(data='/checkpoint/abaevski/data/speech/libri/960h/wav2vec/raw/')
     base_args = parser.parse_args()
 

@@ -122,7 +122,7 @@ class AudioPretrainingTask(FairseqTask):
             split (str): name of the split (e.g., train, valid, test)
         """
         manifest = os.path.join(self.args.data, "{}.tsv".format(split))
-        if self.args.logmel:
+        if hasattr(self.args, 'logmel') and self.args.logmel:
             self.datasets[split] = LogMelAudioDataset(
                 manifest,
                 sample_rate=self.args.sample_rate,

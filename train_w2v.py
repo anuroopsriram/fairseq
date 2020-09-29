@@ -380,7 +380,8 @@ def sweep_w2v_conformer_relpos_400k_17lyrs(base_args):
 
 @submit.register_sweep
 def sweep_w2v_conformer_relpos_large_21lyrs_600k(base_args):
-    lrs = [1e-4, 3e-4]
+    # lrs = [1e-4, 3e-4]
+    lrs = [3e-4]
     param_sweeps = [
         (
             f'lr{lr}',

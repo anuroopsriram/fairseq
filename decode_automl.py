@@ -260,14 +260,15 @@ def launch_local(hyperparams):
     infer_args.sampling = False
     infer_args.nbest = 1
     infer_args.replace_unk = None
-    infer_args.max_sentences = None
+    # infer_args.max_sentences = None
+    infer_args.max_sentences = 1
     infer_args.skip_invalid_size_inputs_valid_test = False
     infer_args.required_batch_size_multiple = 8
     infer_args.num_shards = 1
     infer_args.shard_id = 0
     # infer_args.num_workers = 0
     infer_args.num_workers = 10
-    infer_args.task = 'speech_pretraining'
+    infer_args.task = 'audio_pretraining'
     infer_args.criterion = 'ctc'
     infer_args.cpu = False
     infer_args.quantized = False

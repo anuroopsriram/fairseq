@@ -44,8 +44,8 @@ def compute_wer(hypfls, reffls):
 def evaluate_dir(direc):
     print('Running', direc)
 
-    hypofiles = list(sorted(direc.glob('[0-9]_hypo.word*')))
-    reffiles = list(sorted(direc.glob('[0-9]_ref.word*')))
+    hypofiles = list(sorted(direc.glob('[0-9]*_hypo.word*')))
+    reffiles = list(sorted(direc.glob('[0-9]*_ref.word*')))
     if len(hypofiles) == 0:
         return
 
@@ -74,12 +74,13 @@ def evaluate_dir(direc):
 
 
 def evaluate(args):
-    rundirs = args.dir.glob('run[0-9]*')
-    direcs = [list(rundir.iterdir()) for rundir in rundirs]
-    direcs = sum(direcs, [])
+    # rundirs = args.dir.glob('run[0-9]*')
+    # direcs = [list(rundir.iterdir()) for rundir in rundirs]
+    # direcs = sum(direcs, [])
+    direcs = [args.dir]
     with mp.Pool(1) as pool:
         wers = pool.map(evaluate_dir, direcs)
-    print('\n'.join(wers))
+    # print('\n'.join(wers))
 
     # wers = []
     # for direc in direcs:

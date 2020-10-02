@@ -50,9 +50,8 @@ def build_command(args, base_params, data_dir):
 def build_infer_command(args, base_params, data_dir):
     params = deepcopy(base_params)
     modeldir = Path(params['path']).parent
-    # data = params['gen-subset']
-    # results_path = modeldir / f'res' / args.name / data
-    results_path = modeldir / f'infer'
+    data = params['gen-subset']
+    results_path = modeldir / f'infer' / args.name / data
     params['results-path'] = results_path
     args.logdir = results_path
     cmd = ['python', '-u', 'examples/speech_recognition/infer.py', str(args.data / data_dir)]

@@ -54,11 +54,6 @@ class CrossEntropyCriterion(FairseqCriterion):
             ignore_index=self.padding_idx,
             reduction='sum' if reduce else 'none',
         )
-        # print('Loss =', loss)
-        # if loss > 1e6:
-        #     probs = torch.exp(lprobs)
-        #     print(loss, probs.min(), probs.max())
-        #     print(probs)
         return loss, loss
 
     @staticmethod

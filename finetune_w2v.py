@@ -21,7 +21,7 @@ base_params = {
     'no-epoch-checkpoints': True,
     'best-checkpoint-metric': 'wer',
     'num-workers': 4,
-    'max-update': 80000,
+    'max-update': 320000,
     'sentence-avg': True,
     'task': 'audio_pretraining',
     'arch': 'wav2vec_ctc',
@@ -68,6 +68,40 @@ def w2v_base_250k(args, params):
     return args, params
 
 
+def w2v_base_s2s_250k(args, params):
+    max_update = 320000
+
+    params.update({
+        'labels': '10k',
+        'arch': 'wav2vec_seq2seq',
+        'find-unused-parameters': True,
+        'layerdrop': 0.2,
+        'decoder-layerdrop': 0.25,
+        'mask-channel-prob': 0.3,
+
+        'decoder-layers': 10,  # TODO
+        'decoder-embed-dim': 1024,
+        'decoder-ffn-embed-dim': 4096,
+        'decoder-attention-heads': 16,
+
+        'freeze-finetune-updates': 0,
+        'validate-after-updates': 0,
+
+        'max-update': max_update,
+        'warmup-steps': int(max_update * 0.1),
+        'hold-steps': int(max_update * 0.4),
+        'decay-steps': int(max_update * 0.5),
+        'final-lr-scale': 0.05,
+
+        'dropout': 0.3,
+        'activation-dropout': 0.1,
+        'attention-dropout': 0.1,
+
+        'criterion': 'cross_entropy',
+    })
+    return args, params
+
+
 def w2v_base_400k(args, params):
     args.name = args.name or 'w2v.base.400k.ft'
     args.nodes = 3
@@ -98,6 +132,92 @@ def w2v_conformer_400k_lm(args, params):
     return args, params
 
 
+def w2v_conformer_relpos_s2s(args, params):
+    max_update = 320000
+
+    args.name = args.name or 'w2v.conformer.relpos.s2s.400k.ft'
+    args.nodes = 3
+
+    params.update({
+        'labels': '10k',
+        'arch': 'wav2vec_seq2seq',
+        'find-unused-parameters': True,
+        'layerdrop': 0.2,
+        'decoder-layerdrop': 0.25,
+        'mask-channel-prob': 0.3,
+
+        'decoder-layers': 10,  # TODO
+        'decoder-embed-dim': 1024,
+        'decoder-ffn-embed-dim': 4096,
+        'decoder-attention-heads': 16,
+
+        'freeze-finetune-updates': 0,
+        'validate-after-updates': 0,
+
+        'max-update': max_update,
+        'warmup-steps': int(max_update * 0.1),
+        'hold-steps': int(max_update * 0.4),
+        'decay-steps': int(max_update * 0.5),
+        'final-lr-scale': 0.05,
+
+        'dropout': 0.3,
+        'activation-dropout': 0.1,
+        'attention-dropout': 0.1,
+
+        'criterion': 'cross_entropy',
+
+        'share-decoder-input-output-embed': False,
+    })
+    del params['zero-infinity']
+    del params['post-process']
+
+    return args, params
+
+
+def sup_conformer_relpos_s2s(args, params):
+    max_update = 800000
+
+    args.name = args.name or 'sup.conformer.relpos.s2s'
+    args.nodes = 3
+
+    params.update({
+        'labels': '10k',
+        'arch': 'wav2vec_seq2seq',
+        'find-unused-parameters': True,
+        'layerdrop': 0.2,
+        'decoder-layerdrop': 0.25,
+        'mask-channel-prob': 0.3,
+
+        'decoder-layers': 10,  # TODO
+        'decoder-embed-dim': 1024,
+        'decoder-ffn-embed-dim': 4096,
+        'decoder-attention-heads': 16,
+
+        'freeze-finetune-updates': 0,
+        'validate-after-updates': 0,
+
+        'max-update': max_update,
+        'warmup-steps': int(max_update * 0.1),
+        'hold-steps': int(max_update * 0.4),
+        'decay-steps': int(max_update * 0.5),
+        'final-lr-scale': 0.05,
+
+        'dropout': 0.3,
+        'activation-dropout': 0.1,
+        'attention-dropout': 0.1,
+
+        'criterion': 'cross_entropy',
+
+        'share-decoder-input-output-embed': False,
+
+        'no-pretrained-weights': True,
+    })
+    del params['zero-infinity']
+    del params['post-process']
+
+    return args, params
+
+
 def sup_conformer_relpos_800k(args, params):
     args.name = args.name or 'sup.conformer.relpos.250k'
     args.nodes = 3
@@ -110,6 +230,9 @@ def sup_conformer_relpos_800k(args, params):
         'warmup-steps': 40000,
         'hold-steps': 400000,
         'decay-steps': 360000,
+
+        'freeze-finetune-updates': 0,
+        'validate-after-updates': 0,
     })
     return args, params
 
@@ -277,6 +400,46 @@ def sweep_w2v_conformer_400k_4glm_960h(base_args):
 
 
 @submit.register_sweep
+def sweep_w2v_conformer_relpos_s2s_960h(base_args):
+    lrs = [2e-05]
+    checkpoints = [
+        Path('logs/w2v.conformer.relpos.400k/dim512.enclyrs17.lr0.0005.rpemb16.unlab'),
+    ]
+    param_sweeps = [
+        (
+            f'{checkpoint.name}/lr{lr}',
+            {
+                'w2v-path': checkpoint / 'checkpoint_best.pt',
+                'lr': lr,
+            },
+        )
+        for checkpoint in checkpoints
+        for lr in lrs
+    ]
+    submit.run_sweeps(w2v_conformer_relpos_s2s, base_args, base_params, param_sweeps, dataset='lab.960h')
+
+
+@submit.register_sweep
+def sweep_sup_conformer_relpos_s2s_960h(base_args):
+    lrs = [1e-02, 1e-03]
+    checkpoints = [
+        Path('logs/w2v.conformer.relpos.400k/dim512.enclyrs17.lr0.0005.rpemb16.unlab'),
+    ]
+    param_sweeps = [
+        (
+            f'{checkpoint.name}/lr{lr}',
+            {
+                'w2v-path': checkpoint / 'checkpoint_best.pt',
+                'lr': lr,
+            },
+        )
+        for checkpoint in checkpoints
+        for lr in lrs
+    ]
+    submit.run_sweeps(sup_conformer_relpos_s2s, base_args, base_params, param_sweeps, dataset='lab.960h')
+
+
+@submit.register_sweep
 def sweep_sup_conformer_relpos_800k_960h(base_args):
     # lrs = [1e-2, 1e-3, 1e-4]
     lrs = [3e-4, 3e-5]
@@ -304,8 +467,9 @@ def sweep_sup_conformer_relpos_800k_960h(base_args):
 @submit.register_sweep
 def sweep_sup_conformer_relpos_800k_960h_4glm(base_args):
     # lrs = [1e-2, 1e-3, 1e-4]
-    lrs = [3e-4, 6e-4]
-    clips = [400]
+    # lrs = [3e-4, 6e-4]
+    lrs = [1e-4]
+    clips = [200]
     checkpoints = [
         Path('logs/w2v.conformer.relpos.250k/dim512.enclyrs17.lr0.001.rpemb16'),
     ]

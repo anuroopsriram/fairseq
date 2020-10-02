@@ -91,7 +91,7 @@ def eval_translm(args, params):
     args.name = args.name or 'translm'
     args.nodes = 1
     args.gpus = 1
-    args.timeout = 3
+    args.timeout = 10
     args.shards = 16
     params.update({
         'w2l-decoder': 'fairseqlm',
@@ -128,7 +128,7 @@ def fixed_eval_4glm(base_args):
         # for name, overrides in param_sweeps_rs:
         params = {'gen-subset': split}
         params.update(**hyperparams)
-        param_sweeps.append((name, params))
+        param_sweeps.append((f'kenlm.{name}.{split}', params))
 
     submit.run_sweeps(eval_4glm, base_args, base_params, param_sweeps,
                       dataset='', task='infer', check_names=False)
@@ -145,7 +145,7 @@ def fixed_eval_translm(base_args):
     for split in base_args.splits:
         params = {'gen-subset': split}
         params.update(**hyperparams)
-        param_sweeps.append((name, params))
+        param_sweeps.append((f'translm.{name}.{split}', params))
 
     submit.run_sweeps(eval_translm, base_args, base_params, param_sweeps,
                       dataset='', task='infer', check_names=False)

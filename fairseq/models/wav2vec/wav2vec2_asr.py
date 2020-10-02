@@ -319,24 +319,25 @@ class TransformerModel(FairseqEncoderDecoderModel):
 
     @classmethod
     def build_decoder(cls, args, tgt_dict, embed_tokens):
-        if args.decoder_type == 'transformer':
-            return TransformerDecoder(args, tgt_dict, embed_tokens)
-        elif args.decoder_type == 'lstm':
-            return LSTMDecoder(
-                tgt_dict,
-                embed_dim=args.decoder_embed_dim,
-                hidden_size=args.lstm_hidden_size,
-                out_embed_dim=embed_tokens.embedding_dim,
-                num_layers=args.num_lstm_layers,
-                dropout_in=args.decoder_dropout,
-                dropout_out=args.decoder_dropout,
-                attention=True,
-                encoder_output_units=embed_tokens.embedding_dim,
-                share_input_output_embed=args.share_decoder_input_output_embed,
-                max_target_positions=args.max_target_positions,
-            )
-        else:
-            raise ValueError
+        return TransformerDecoder(args, tgt_dict, embed_tokens)
+        # if args.decoder_type == 'transformer':
+        #     return TransformerDecoder(args, tgt_dict, embed_tokens)
+        # elif args.decoder_type == 'lstm':
+        #     return LSTMDecoder(
+        #         tgt_dict,
+        #         embed_dim=args.decoder_embed_dim,
+        #         hidden_size=args.lstm_hidden_size,
+        #         out_embed_dim=embed_tokens.embedding_dim,
+        #         num_layers=args.num_lstm_layers,
+        #         dropout_in=args.decoder_dropout,
+        #         dropout_out=args.decoder_dropout,
+        #         attention=True,
+        #         encoder_output_units=embed_tokens.embedding_dim,
+        #         share_input_output_embed=args.share_decoder_input_output_embed,
+        #         max_target_positions=args.max_target_positions,
+        #     )
+        # else:
+        #     raise ValueError
 
     def forward(self, **kwargs):
         encoder_out = self.encoder(tbc=False, **kwargs)
@@ -406,6 +407,8 @@ class Wav2VecEncoder(FairseqEncoder):
 
         if tgt_dict is not None:
             self.proj = Linear(d, len(tgt_dict))
+        elif getattr(args, 'decoder_embed_dim', d) != d:
+            self.proj = Linear(d, args.decoder_embed_dim)
         else:
             self.proj = None
 
@@ -482,7 +485,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
 
         input_embed_dim = embed_tokens.embedding_dim
         embed_dim = args.decoder_embed_dim
-        self.output_embed_dim = args.decoder_output_dim
+        self.output_embed_dim = args.decoder_embed_dim
         args.encoder_embed_dim = embed_dim
 
         self.layerdrop = args.decoder_layerdrop
@@ -492,12 +495,6 @@ class TransformerDecoder(FairseqIncrementalDecoder):
 
         self.embed_tokens = embed_tokens
         self.embed_scale = math.sqrt(embed_dim)  # todo: try with input_embed_dim
-
-        self.project_in_dim = (
-            Linear(input_embed_dim, embed_dim, bias=False)
-            if embed_dim != input_embed_dim
-            else None
-        )
 
         self.embed_positions = (
             PositionalEmbedding(
@@ -523,12 +520,6 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             ]
         )
 
-        self.project_out_dim = (
-            Linear(embed_dim, self.output_embed_dim, bias=False)
-            if embed_dim != self.output_embed_dim and not args.tie_adaptive_weights
-            else None
-        )
-
         if not self.share_input_output_embed:
             self.embed_out = nn.Parameter(
                 torch.Tensor(len(dictionary), self.output_embed_dim)
@@ -536,14 +527,14 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             nn.init.normal_(self.embed_out, mean=0, std=self.output_embed_dim ** -0.5)
 
         if args.decoder_normalize_before and not getattr(
-            args, "no_decoder_final_norm", False
+                args, "no_decoder_final_norm", False
         ):
             self.layer_norm = LayerNorm(embed_dim)
         else:
             self.layer_norm = None
 
     def forward(
-        self, prev_output_tokens, encoder_out=None, incremental_state=None, **unused
+            self, prev_output_tokens, encoder_out=None, incremental_state=None, **unused
     ):
         """
         Args:
@@ -567,7 +558,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
         return x, extra
 
     def extract_features(
-        self, prev_output_tokens, encoder_out=None, incremental_state=None, **unused
+            self, prev_output_tokens, encoder_out=None, incremental_state=None, **unused
     ):
         """
         Similar to *forward* but only return features.
@@ -631,9 +622,6 @@ class TransformerDecoder(FairseqIncrementalDecoder):
         # T x B x C -> B x T x C
         x = x.transpose(0, 1)
 
-        if self.project_out_dim is not None:
-            x = self.project_out_dim(x)
-
         return x, {"attn": attn, "inner_states": inner_states}
 
     def output_layer(self, features, **kwargs):
@@ -653,10 +641,10 @@ class TransformerDecoder(FairseqIncrementalDecoder):
     def buffered_future_mask(self, tensor):
         dim = tensor.size(0)
         if (
-            not hasattr(self, "_future_mask")
-            or self._future_mask is None
-            or self._future_mask.device != tensor.device
-            or self._future_mask.size(0) < dim
+                not hasattr(self, "_future_mask")
+                or self._future_mask is None
+                or self._future_mask.device != tensor.device
+                or self._future_mask.size(0) < dim
         ):
             self._future_mask = torch.triu(
                 utils.fill_with_neg_inf(tensor.new(dim, dim)), 1
@@ -723,5 +711,6 @@ def seq2seq_architecture(args):
     args.decoder_dropout = getattr(args, "decoder_dropout", 0)
     args.decoder_attention_dropout = getattr(args, "decoder_attention_dropout", 0)
     args.decoder_activation_dropout = getattr(args, "decoder_activation_dropout", 0)
+    args.share_decoder_input_output_embed = getattr(args, "share_decoder_input_output_embed", False)
 
     base_architecture(args)

@@ -167,9 +167,12 @@ def w2v_conformer_relpos_s2s(args, params):
         'criterion': 'cross_entropy',
 
         'share-decoder-input-output-embed': False,
+
+        'log-interval': 100,
     })
     del params['zero-infinity']
     del params['post-process']
+    del params['best-checkpoint-metric']
 
     return args, params
 
@@ -214,6 +217,7 @@ def sup_conformer_relpos_s2s(args, params):
     })
     del params['zero-infinity']
     del params['post-process']
+    del params['best-checkpoint-metric']
 
     return args, params
 
@@ -417,11 +421,12 @@ def sweep_w2v_conformer_relpos_s2s_960h(base_args):
         for lr in lrs
     ]
     submit.run_sweeps(w2v_conformer_relpos_s2s, base_args, base_params, param_sweeps, dataset='lab.960h')
+    # submit.run_sweeps(w2v_conformer_relpos_s2s, base_args, base_params, param_sweeps, dataset='lab.10h')
 
 
 @submit.register_sweep
 def sweep_sup_conformer_relpos_s2s_960h(base_args):
-    lrs = [1e-02, 1e-03]
+    lrs = [1e-04]
     checkpoints = [
         Path('logs/w2v.conformer.relpos.400k/dim512.enclyrs17.lr0.0005.rpemb16.unlab'),
     ]

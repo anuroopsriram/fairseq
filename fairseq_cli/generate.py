@@ -7,6 +7,7 @@
 Translate pre-processed data with a trained model.
 """
 
+from itertools import chain
 import logging
 import math
 import os
@@ -78,17 +79,33 @@ def _main(args, output_file):
         src_dict = None
     tgt_dict = task.target_dictionary
 
+    overrides = eval(args.model_overrides)
+
     # Load ensemble
     logger.info('loading model(s) from {}'.format(args.path))
     models, _model_args = checkpoint_utils.load_model_ensemble(
         utils.split_paths(args.path),
-        arg_overrides=eval(args.model_overrides),
+        arg_overrides=overrides,
         task=task,
         suffix=getattr(args, "checkpoint_suffix", ""),
     )
 
+    if args.lm_path is not None:
+        overrides['data'] = args.data
+
+        lms, _ = checkpoint_utils.load_model_ensemble(
+            [args.lm_path],
+            arg_overrides=overrides,
+            task=None,
+        )
+        assert len(lms) == 1
+    else:
+        lms = [None]
+
     # Optimize ensemble for generation
-    for model in models:
+    for model in chain(models, lms):
+        if model is None:
+            continue
         model.prepare_for_inference_(args)
         if args.fp16:
             model.half()
@@ -123,7 +140,12 @@ def _main(args, output_file):
 
     # Initialize generator
     gen_timer = StopwatchMeter()
-    generator = task.build_generator(models, args)
+
+    extra_gen_cls_kwargs = {
+        'lm_model': lms[0],
+        'lm_weight': args.lm_weight
+    }
+    generator = task.build_generator(models, args, extra_gen_cls_kwargs=extra_gen_cls_kwargs)
 
     # Handle tokenization and BPE
     tokenizer = encoders.build_tokenizer(args)

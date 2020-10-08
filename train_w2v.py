@@ -387,7 +387,7 @@ def sweep_w2v_conformer_relpos_large_21lyrs_600k(base_args):
         (
             f'lr{lr}',
             {
-                'lr': lr,
+                'lr': lr / 2,
                 'end-learning-rate': lr / 8,
                 'min-loss-scale': 0.05,
             },
@@ -405,7 +405,7 @@ def sweep_w2v_conformer_relpos_large_21lyrs_600k_librivox(base_args):
         (
             f'lr{lr}',
             {
-                'lr': lr,
+                'lr': lr / 2,
                 'end-learning-rate': lr / 8,
                 'min-loss-scale': 0.05,
             },

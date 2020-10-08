@@ -79,7 +79,7 @@ def w2v_base_s2s_250k(args, params):
         'decoder-layerdrop': 0.25,
         'mask-channel-prob': 0.3,
 
-        'decoder-layers': 10,  # TODO
+        'decoder-layers': 3,  # TODO
         'decoder-embed-dim': 1024,
         'decoder-ffn-embed-dim': 4096,
         'decoder-attention-heads': 16,
@@ -146,23 +146,23 @@ def w2v_conformer_relpos_s2s(args, params):
         'decoder-layerdrop': 0.25,
         'mask-channel-prob': 0.3,
 
-        'decoder-layers': 10,  # TODO
+        'decoder-layers': 3,  # TODO
         'decoder-embed-dim': 1024,
         'decoder-ffn-embed-dim': 4096,
         'decoder-attention-heads': 16,
 
-        'freeze-finetune-updates': 0,
-        'validate-after-updates': 0,
+        'freeze-finetune-updates': 10000,
+        'validate-after-updates': 10000,
 
         'max-update': max_update,
-        'warmup-steps': int(max_update * 0.1),
+        'warmup-steps': int(max_update * 0.2),
         'hold-steps': int(max_update * 0.4),
-        'decay-steps': int(max_update * 0.5),
+        'decay-steps': int(max_update * 0.4),
         'final-lr-scale': 0.05,
 
-        'dropout': 0.3,
-        'activation-dropout': 0.1,
-        'attention-dropout': 0.1,
+        'decoder-dropout': 0.3,
+        'decoder-activation-dropout': 0.1,
+        'decoder-attention-dropout': 0.1,
 
         'criterion': 'cross_entropy',
 
@@ -191,7 +191,7 @@ def sup_conformer_relpos_s2s(args, params):
         'decoder-layerdrop': 0.25,
         'mask-channel-prob': 0.3,
 
-        'decoder-layers': 10,  # TODO
+        'decoder-layers': 3,  # TODO
         'decoder-embed-dim': 1024,
         'decoder-ffn-embed-dim': 4096,
         'decoder-attention-heads': 16,
@@ -200,14 +200,14 @@ def sup_conformer_relpos_s2s(args, params):
         'validate-after-updates': 0,
 
         'max-update': max_update,
-        'warmup-steps': int(max_update * 0.1),
+        'warmup-steps': int(max_update * 0.2),
         'hold-steps': int(max_update * 0.4),
-        'decay-steps': int(max_update * 0.5),
+        'decay-steps': int(max_update * 0.4),
         'final-lr-scale': 0.05,
 
-        'dropout': 0.3,
-        'activation-dropout': 0.1,
-        'attention-dropout': 0.1,
+        'decoder-dropout': 0.3,
+        'decoder-activation-dropout': 0.1,
+        'decoder-attention-dropout': 0.1,
 
         'criterion': 'cross_entropy',
 
@@ -405,7 +405,7 @@ def sweep_w2v_conformer_400k_4glm_960h(base_args):
 
 @submit.register_sweep
 def sweep_w2v_conformer_relpos_s2s_960h(base_args):
-    lrs = [2e-05]
+    lrs = [2e-05, 4e-05, 1e-04]
     checkpoints = [
         Path('logs/w2v.conformer.relpos.400k/dim512.enclyrs17.lr0.0005.rpemb16.unlab'),
     ]

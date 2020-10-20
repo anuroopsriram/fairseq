@@ -8,7 +8,10 @@ function devsub {
 
 #MODEL='logs/w2v.conformer.relpos.s2s.400k.ft/dim512.enclyrs17.lr0.0005.rpemb16.unlab/lr2e-05.lab.960h/checkpoint_best.pt'
 #MODEL='logs/w2v.conformer.relpos.s2s.400k.ft/dim512.enclyrs17.lr0.0005.rpemb16.unlab/lr0.0001.lab.960h/checkpoint_best.pt'
-MODEL='logs/w2v.conformer.relpos.s2s.400k.ft/dim512.enclyrs17.lr0.0005.rpemb16.unlab/lr0.0001.lab.960h/checkpoint_last.pt'
+#MODEL='logs/w2v.conformer.relpos.s2s.400k.ft/dim512.enclyrs17.lr0.0005.rpemb16.unlab/lr0.0001.lab.960h/checkpoint_last.pt'
+
+MODEL='logs/w2v.conformer.relpos.s2s.400k.ft/dim512.enclyrs17.lr0.0005.rpemb16.unlab/lr0.0001.lab.960h/checkpoint_best.pt'
+
 
 LM='/checkpoint/henryzhou7/wp_lm/transformer_raw3_adam_cosine2node/lr_1e-4_updatefreq_8/checkpoint_best.pt'
 #LM='/checkpoint/abaevski/data/speech/libri/4-gram.bin'
@@ -24,9 +27,10 @@ BASECMD="python fairseq_cli/generate.py /checkpoint/henryzhou7/dataset/libri/960
 
 
 for lmwt in 0 0.05 0.1 0.25 0.5 1 1.5; do
-  for temp in 1; do
+  for temp in 0.75 1 1.25; do
       CMD="${BASECMD} --lm-weight ${lmwt}  --temperature ${temp}"
       # echo $CMD
       devsub "s2s-decode-${lmwt}-${temp}" "${CMD}"
    done
 done
+

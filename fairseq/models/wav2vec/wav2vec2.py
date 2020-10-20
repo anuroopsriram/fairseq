@@ -342,6 +342,12 @@ class Wav2Vec2Model(BaseFairseqModel):
             action='store_true'
         )
         parser.add_argument(
+            '--rel-posn-mha-list',
+            default=None,
+            metavar="EXPR",
+            type=str,
+        )
+        parser.add_argument(
             '--num-relpos-embeds',
             default=768,
             type=int
@@ -842,8 +848,8 @@ class TransformerEncoder(nn.Module):
 
         self.layers = nn.ModuleList(
             [
-                self.create_transformer_layer(args)
-                for _ in range(args.encoder_layers)
+                self.create_transformer_layer(args, i)
+                for i in range(args.encoder_layers)
             ]
         )
 
@@ -853,7 +859,7 @@ class TransformerEncoder(nn.Module):
 
         self.apply(init_bert_params)
 
-    def create_transformer_layer(self, args):
+    def create_transformer_layer(self, args, lyrnum=None):
         if args.transformer_type == 'transformer':
             layer = TransformerSentenceEncoderLayer(
                 embedding_dim=self.embedding_dim,
@@ -866,6 +872,12 @@ class TransformerEncoder(nn.Module):
                 layer_norm_first=args.layer_norm_first,
             )
         elif args.transformer_type == 'conformer':
+            use_rel_posn_mha = args.use_rel_posn_mha
+            if use_rel_posn_mha and args.rel_posn_mha_list is not None:
+                rel_posn_mha_list = eval(args.rel_posn_mha_list)
+                assert len(rel_posn_mha_list) == args.encoder_layers
+                use_rel_posn_mha = rel_posn_mha_list[lyrnum]
+
             layer = ConformerEncoderLayer(
                 embedding_dim=self.embedding_dim,
                 num_attention_heads=args.encoder_attention_heads,
@@ -876,7 +888,7 @@ class TransformerEncoder(nn.Module):
                 kern_size=args.conformer_kernel_size,
                 ffn_scale=args.ffn_scale,
                 no_expand_ffn=args.no_expand_ffn,
-                use_rel_posn_mha=args.use_rel_posn_mha,
+                use_rel_posn_mha=use_rel_posn_mha,
                 num_relpos_embeds=args.num_relpos_embeds,
                 lin_dropout=args.lin_dropout,
             )

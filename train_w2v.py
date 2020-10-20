@@ -138,6 +138,24 @@ def w2v_conformer_relpos_250k(args, params):
     return args, params
 
 
+def w2v_conformer_relpos_2x100k(args, params):
+    args.name = args.name or 'w2v.conformer.relpos.2x100k'
+    args.nodes = 2
+    params.update({
+        'transformer-type': 'conformer',
+        'encoder-layers': 17,
+        'encoder-embed-dim': 512,
+        'encoder-ffn-embed-dim': 512,
+        'encoder-attention-heads': 8,
+        'total-num-update': 100000,
+        'max-update': 100000,
+        'use-rel-posn-mha': True,
+        'num-relpos-embeds': 16,
+        'lin-dropout': 0.1,
+    })
+    return args, params
+
+
 def w2v_conformer_relpos_400k(args, params):
     args.name = args.name or 'w2v.conformer.relpos.400k'
     args.nodes = 8
@@ -168,6 +186,33 @@ def w2v_conformer_relpos_large_21lyrs_600k(args, params):
         'feature-grad-mult': 0.03,
         'encoder-layers': 21,
         'encoder-embed-dim': 768,
+        'max-sample-size': 320000,
+        'dropout': 0.0,
+        'max-tokens': 1200000,
+        'max-update': 600000,
+
+        'transformer-type': 'conformer',
+        'encoder-attention-heads': 8,
+
+        'use-rel-posn-mha': True,
+        'num-relpos-embeds': 16,
+        'lin-dropout': 0.,
+    })
+    return args, params
+
+
+def w2v_conformer_relpos_large_32lyrs_600k(args, params):
+    args.name = args.name or 'w2v.conformer.relpos.large.32lyrs.600K.16nd'
+    args.nodes = 16
+
+    params.update({
+        'final-dim': 768,
+        'latent-temp': (2.0, 0.1, 0.999995),
+        'total-num-update': 600000,
+        'encoder-layerdrop': 0.,
+        'feature-grad-mult': 0.03,
+        'encoder-layers': 32,
+        'encoder-embed-dim': 640,
         'max-sample-size': 320000,
         'dropout': 0.0,
         'max-tokens': 1200000,
@@ -355,6 +400,44 @@ def sweep_w2v_conformer_relpos_250k_17lyrs(base_args):
 
 
 @submit.register_sweep
+def sweep_w2v_conformer_partial_relpos_250k_17lyrs(base_args):
+    dims = [512]
+    num_relpos_embeds = [16]
+    lrs = [1e-3]
+    encoder_layers = [17]
+    rel_posn_mha_list = {
+        # 'none': (False,) * 8
+        # 'all': (True,) * 8,
+
+        'first4': (True,) * 4 + (False,) * 13,
+        'last4': (False,) * 13 + (True,) * 4,
+
+        # 'first8': (True,) * 8 + (False,) * 9,
+        # 'last8': (False,) * 9 + (True,) * 8,
+        # 'alt': (False, True) * 8 + (False,),
+    }
+    param_sweeps = [
+        (
+            f'dim{dim}.enclyrs{enc_lyrs}.lr{lr}.rpemb{rpemb}.mha{name}',
+            {
+                'encoder-embed-dim': dim,
+                'encoder-ffn-embed-dim': dim,
+                'lr': lr,
+                'encoder-layers': enc_lyrs,
+                'num-relpos-embeds': rpemb,
+                'rel-posn-mha-list': mhalst,
+            },
+        )
+        for dim in dims
+        for lr in lrs
+        for enc_lyrs in encoder_layers
+        for rpemb in num_relpos_embeds
+        for name, mhalst in rel_posn_mha_list.items()
+    ]
+    submit.run_sweeps(w2v_conformer_relpos_250k, base_args, base_params, param_sweeps)
+
+
+@submit.register_sweep
 def sweep_w2v_conformer_relpos_400k_17lyrs(base_args):
     dims = [512]
     num_relpos_embeds = [16]
@@ -380,6 +463,30 @@ def sweep_w2v_conformer_relpos_400k_17lyrs(base_args):
 
 
 @submit.register_sweep
+def sweep_w2v_conformer_relpos_large_32lyrs_600k(base_args):
+    lrs = [8e-4]
+    param_sweeps = [
+        (
+            f'lr{lr}',
+            {
+                'lr': lr,
+                'min-loss-scale': 0.001,
+
+                'encoder-layerdrop': 0.075,
+                'dropout': 0.15,
+                'attention-dropout': 0.15,
+                'dropout-features': 0.15,
+                'dropout-input': 0.15,
+                'lin-dropout': 0.15,
+            },
+        )
+        for lr in lrs
+    ]
+    submit.run_sweeps(w2v_conformer_relpos_large_32lyrs_600k, base_args, base_params, param_sweeps)
+
+
+
+@submit.register_sweep
 def sweep_w2v_conformer_relpos_large_21lyrs_600k(base_args):
     # lrs = [1e-4, 3e-4]
     lrs = [1e-3]
@@ -387,9 +494,14 @@ def sweep_w2v_conformer_relpos_large_21lyrs_600k(base_args):
         (
             f'lr{lr}',
             {
-                'lr': lr / 2,
-                'end-learning-rate': lr / 8,
-                'min-loss-scale': 0.05,
+                'lr': lr / 4,
+                'end-learning-rate': lr / 16,
+                'min-loss-scale': 0.01,
+
+                'encoder-layerdrop': 0.075,
+                'dropout': 0.15,
+                'lin-dropout': 0.15,
+                'attention-dropout': 0.15,
             },
         )
         for lr in lrs
@@ -405,9 +517,14 @@ def sweep_w2v_conformer_relpos_large_21lyrs_600k_librivox(base_args):
         (
             f'lr{lr}',
             {
-                'lr': lr / 2,
+                'lr': lr / 4,
                 'end-learning-rate': lr / 8,
                 'min-loss-scale': 0.05,
+
+                'encoder-layerdrop': 0.01,
+                'dropout': 0.05,
+                'lin-dropout': 0.05,
+                'attention-dropout': 0.1,
             },
         )
         for lr in lrs

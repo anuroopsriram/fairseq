@@ -126,6 +126,12 @@ def w2v_conformer_relpos_250k(args, params):
     return args, params
 
 
+def w2v_conformer_relpos_large(args, params):
+    args.name = args.name or 'w2v.conformer.relpos.600k.16nd.ft'
+    args.nodes = 3
+    return args, params
+
+
 def w2v_conformer_400k_lm(args, params):
     args.name = args.name or 'w2v.conformer.400k.ft.4glm'
     args.nodes = 3
@@ -142,11 +148,11 @@ def w2v_conformer_relpos_s2s(args, params):
         'labels': '10k',
         'arch': 'wav2vec_seq2seq',
         'find-unused-parameters': True,
-        'layerdrop': 0.2,
-        'decoder-layerdrop': 0.25,
+        'layerdrop': 0.1,
+        'decoder-layerdrop': 0.1,
         'mask-channel-prob': 0.3,
 
-        'decoder-layers': 3,  # TODO
+        'decoder-layers': 8,  # TODO
         'decoder-embed-dim': 1024,
         'decoder-ffn-embed-dim': 4096,
         'decoder-attention-heads': 16,
@@ -160,9 +166,9 @@ def w2v_conformer_relpos_s2s(args, params):
         'decay-steps': int(max_update * 0.4),
         'final-lr-scale': 0.05,
 
-        'decoder-dropout': 0.3,
-        'decoder-activation-dropout': 0.1,
-        'decoder-attention-dropout': 0.1,
+        'decoder-dropout': 0.2,
+        'decoder-activation-dropout': 0.2,
+        'decoder-attention-dropout': 0.2,
 
         'criterion': 'cross_entropy',
 
@@ -360,6 +366,50 @@ def sweep_w2v_conformer_relpos_250k(base_args):
 
 
 @submit.register_sweep
+def sweep_w2v_conformer_relpos_large_10h(base_args):
+    # lrs = [6e-05, 2e-05]
+    # lrs = [1e-04]
+    lrs = [5e-05]
+    checkpoints = [
+        Path('logs/w2v.conformer.relpos.600K.16nd/lr0.001.unlab'),
+    ]
+    param_sweeps = [
+        (
+            f'{checkpoint.name}/lr{lr}',
+            {
+                'w2v-path': checkpoint / 'checkpoint_best.pt',
+                'lr': lr,
+            },
+        )
+        for checkpoint in checkpoints
+        for lr in lrs
+    ]
+    submit.run_sweeps(w2v_conformer_relpos_large, base_args, base_params, param_sweeps, dataset='lab.10h')
+
+
+@submit.register_sweep
+def sweep_w2v_conformer_relpos_large_960h(base_args):
+    # lrs = [6e-05, 2e-05]
+    # lrs = [1e-04]
+    lrs = [5e-05]
+    checkpoints = [
+        Path('logs/w2v.conformer.relpos.600K.16nd/lr0.001.unlab'),
+    ]
+    param_sweeps = [
+        (
+            f'{checkpoint.name}/lr{lr}',
+            {
+                'w2v-path': checkpoint / 'checkpoint_best.pt',
+                'lr': lr,
+            },
+        )
+        for checkpoint in checkpoints
+        for lr in lrs
+    ]
+    submit.run_sweeps(w2v_conformer_relpos_large, base_args, base_params, param_sweeps, dataset='lab.960h')
+
+
+@submit.register_sweep
 def sweep_w2v_conformer_400k_4glm(base_args):
     lrs = [6e-05, 2e-05]
     checkpoints = [
@@ -405,7 +455,8 @@ def sweep_w2v_conformer_400k_4glm_960h(base_args):
 
 @submit.register_sweep
 def sweep_w2v_conformer_relpos_s2s_960h(base_args):
-    lrs = [2e-05, 4e-05, 1e-04]
+    # lrs = [2e-05, 4e-05, 1e-04]
+    lrs = [1e-04]
     checkpoints = [
         Path('logs/w2v.conformer.relpos.400k/dim512.enclyrs17.lr0.0005.rpemb16.unlab'),
     ]
@@ -492,50 +543,39 @@ def sweep_sup_conformer_relpos_800k_960h_4glm(base_args):
         for checkpoint in checkpoints
         for lr in lrs
     ]
-    submit.run_sweeps(sup_conformer_relpos_800k, base_args, base_params, param_sweeps, dataset='lab.960h')
+    submit.run_sweeps(w2v_base_400k, base_args, base_params, param_sweeps, dataset='lab.960h')
 
 
-# @submit.register_sweep
-# def sweep_sup_conformer_relpos_250k_4glm_960h(base_args):
-#     lrs = [1e-4, 3e-5]
-#     checkpoints = [
-#         Path('logs/w2v.conformer.relpos.250k/dim512.enclyrs17.lr0.001.rpemb16'),
-#     ]
-#     param_sweeps = [
-#         (
-#             f'{checkpoint.name}/lr{lr}.cn10',
-#             {
-#                 'w2v-path': checkpoint / 'checkpoint_best.pt',
-#                 'lr': lr,
-#                 'wer-args': wer_args,
-#                 'clip-norm': 10,
-#             },
-#         )
-#         for checkpoint in checkpoints
-#         for lr in lrs
-#     ]
-#     submit.run_sweeps(sup_conformer_relpos_250k_lm, base_args, base_params, param_sweeps, dataset='lab.960h')
-#
-#
-# @submit.register_sweep
-# def sweep_sup_conformer_relpos_logmel_250k_960h(base_args):
-#     lrs = [1e-4, 3e-5]
-#     checkpoints = [
-#         Path('logs/w2v.conformer.relpos.250k/dim512.enclyrs17.lr0.001.rpemb16'),
-#     ]
-#     param_sweeps = [
-#         (
-#             f'{checkpoint.name}/lr{lr}.cn10',
-#             {
-#                 'w2v-path': checkpoint / 'checkpoint_best.pt',
-#                 'lr': lr,
-#                 'clip-norm': 10,
-#             },
-#         )
-#         for checkpoint in checkpoints
-#         for lr in lrs
-#     ]
-#     submit.run_sweeps(sup_conformer_relpos_logmel_250k, base_args, base_params, param_sweeps, dataset='lab.960h')
+@submit.register_sweep
+def sweep_w2v_conformer_partial_relpos_250k_17lyrs(base_args):
+    checkpoints = {
+        # 'none': Path('logs/w2v.conformer.relpos.2x100k/dim512.enclyrs8.lr0.001.rpemb16.mhanone.unlab/'),
+        # 'all': Path('logs/w2v.conformer.relpos.2x100k/dim512.enclyrs8.lr0.001.rpemb16.mhaall.unlab/'),
+        # 'first4': Path('logs/w2v.conformer.relpos.2x100k/dim512.enclyrs8.lr0.001.rpemb16.mhafirst4.unlab/'),
+        # 'last4': Path('logs/w2v.conformer.relpos.2x100k/dim512.enclyrs8.lr0.001.rpemb16.mhalast4.unlab/'),
+        # 'alt': Path('logs/w2v.conformer.relpos.2x100k/dim512.enclyrs8.lr0.001.rpemb16.mhaalt.unlab/'),
+
+        'alt': Path('logs/w2v.conformer.relpos.250k/dim512.enclyrs17.lr0.001.rpemb16.mhaalt.unlab/'),
+        'first4': Path('logs/w2v.conformer.relpos.250k/dim512.enclyrs17.lr0.001.rpemb16.mhafirst4.unlab/'),
+        'last4': Path('logs/w2v.conformer.relpos.250k/dim512.enclyrs17.lr0.001.rpemb16.mhalast4.unlab/'),
+        'first8': Path('logs/w2v.conformer.relpos.250k/dim512.enclyrs17.lr0.001.rpemb16.mhafirst8.unlab/'),
+        'last8': Path('logs/w2v.conformer.relpos.250k/dim512.enclyrs17.lr0.001.rpemb16.mhalast8.unlab/'),
+    }
+    lrs = [2e-5]
+    param_sweeps = [
+        (
+            f'{checkpoint.name}/{name}.lr{lr}',
+            {
+                'w2v-path': checkpoint / 'checkpoint_best.pt',
+                'lr': lr,
+            },
+        )
+        for name, checkpoint in checkpoints.items()
+        for lr in lrs
+    ]
+    # base_args.name = 'w2v.conformer.relpos.2x100k.ft'
+    base_args.name = 'w2v.conformer.relpos.250k.ft'
+    submit.run_sweeps(w2v_base_400k, base_args, base_params, param_sweeps, dataset='lab.10h')
 
 
 if __name__ == '__main__':

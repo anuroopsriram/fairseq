@@ -8,9 +8,13 @@
 import os
 import sys
 
-from fairseq.data import FileAudioDataset, Dictionary, AddTargetDataset
+from fairseq.data.data_utils import post_process
+
+from fairseq.data import FileAudioDataset, Dictionary, AddTargetDataset, encoders
 from . import FairseqTask, register_task
+from .. import utils
 from ..data.audio.raw_audio_dataset import LogMelAudioDataset
+from ..logging import metrics
 
 
 class LabelEncoder(object):
@@ -99,6 +103,17 @@ class AudioPretrainingTask(FairseqTask):
             type=float,
             help="prob of applying specaug",
         )
+        parser.add_argument(
+            "--eval-wer",
+            action="store_true",
+            help="compute WER",
+        )
+        parser.add_argument(
+            "--remove-bpe",
+            "--post-process",
+            default="letter",
+            help="remove BPE tokens before scoring (can be set to sentencepiece, letter, and more)",
+        )
 
     def __init__(self, args, source_dictionary=None):
         super().__init__(args)
@@ -180,3 +195,69 @@ class AudioPretrainingTask(FairseqTask):
     def max_positions(self):
         """Maximum input length supported by the encoder."""
         return (sys.maxsize, sys.maxsize)
+
+    def valid_step(self, sample, model, criterion):
+        loss, sample_size, logging_output = super().valid_step(sample, model, criterion)
+        if getattr(self.args, "eval_wer", False) and not self.is_ctc:
+            metrics = self._inference_with_wer(self.sequence_generator, sample, model)
+            logging_output["_num_word_errors"] = metrics["num_word_errors"]
+            logging_output["_num_words"] = metrics["num_words"]
+        return loss, sample_size, logging_output
+
+    def build_model(self, args):
+        model = super().build_model(args)
+        if getattr(args, 'eval_wer', False) and not self.is_ctc:
+            self.sequence_generator = self.build_generator([model], args)
+            self.tokenizer = encoders.build_tokenizer(args)
+        return model
+
+    def _inference_with_wer(self, generator, sample, model):
+        import editdistance
+
+        def decode(toks, escape_unk=False):
+            s = self.target_dictionary.string(
+                toks.int().cpu(),
+                self.args.remove_bpe,
+                escape_unk=True,
+                extra_symbols_to_ignore={generator.eos},
+            )
+            if self.tokenizer:
+                s = self.tokenizer.decode(s)
+            return s
+
+        num_errors = 0
+        num_tokens = 0
+        gen_out = self.inference_step(generator, [model], sample, None)
+        for i in range(len(gen_out)):
+            hyp = decode(gen_out[i][0]["tokens"])
+            ref = decode(
+                utils.strip_pad(sample["target"][i], self.target_dictionary.pad()),
+                escape_unk=True,
+            )
+            # print(i, "Hypothesis:", hyp)
+            # print(i, "Reference:", ref)
+            hyp_words = post_process(hyp, self.args.remove_bpe).strip("_").split("_")
+            ref_words = post_process(ref, self.args.remove_bpe).strip("_").split("_")
+            # print(i, "Hypothesis words:", hyp_words)
+            # print(i, "Reference words:", ref_words)
+            num_errors += editdistance.eval(hyp_words, ref_words)
+            num_tokens += len(ref_words)
+            # print(i, "Num errors:", num_errors)
+            # print(i, "Num tokens:", num_tokens)
+        return {
+            "num_word_errors": num_errors,
+            "num_words": num_tokens,
+        }
+
+    def reduce_metrics(self, logging_outputs, criterion):
+        super().reduce_metrics(logging_outputs, criterion)
+        num_word_errors = sum(log.get("_num_word_errors", 0) for log in logging_outputs)
+        metrics.log_scalar("_num_word_errors", num_word_errors)
+        num_words = sum(log.get("_num_words", 0) for log in logging_outputs)
+        metrics.log_scalar("_num_words", num_words)
+        if num_words > 0:
+            metrics.log_derived(
+                "wer",
+                lambda meters: round(meters["_num_word_errors"].sum * 100.0 / meters["_num_words"].sum, 3)
+                if meters["_num_words"].sum > 0 else float("nan")
+            )

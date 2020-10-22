@@ -466,6 +466,7 @@ def sweep_w2v_conformer_relpos_s2s_960h(base_args):
             {
                 'w2v-path': checkpoint / 'checkpoint_best.pt',
                 'lr': lr,
+                "eval-wer": True,
             },
         )
         for checkpoint in checkpoints
@@ -576,6 +577,73 @@ def sweep_w2v_conformer_partial_relpos_250k_17lyrs(base_args):
     # base_args.name = 'w2v.conformer.relpos.2x100k.ft'
     base_args.name = 'w2v.conformer.relpos.250k.ft'
     submit.run_sweeps(w2v_base_400k, base_args, base_params, param_sweeps, dataset='lab.10h')
+
+
+def sup_tmp(args, params):
+    max_update = 800000
+
+    args.name = args.name or 'sup.conformer.relpos.s2s'
+    args.nodes = 3
+
+    params.update({
+        'labels': '10k',
+        'arch': 'wav2vec_seq2seq',
+        'find-unused-parameters': True,
+        'layerdrop': 0.2,
+        'decoder-layerdrop': 0.25,
+        'mask-channel-prob': 0.3,
+
+        'decoder-layers': 3,  # TODO
+        'decoder-embed-dim': 1024,
+        'decoder-ffn-embed-dim': 4096,
+        'decoder-attention-heads': 16,
+
+        'freeze-finetune-updates': 0,
+
+        'max-update': max_update,
+        'warmup-steps': int(max_update * 0.2),
+        'hold-steps': int(max_update * 0.4),
+        'decay-steps': int(max_update * 0.4),
+        'final-lr-scale': 0.05,
+
+        'decoder-dropout': 0.3,
+        'decoder-activation-dropout': 0.1,
+        'decoder-attention-dropout': 0.1,
+
+        'criterion': 'cross_entropy',
+
+        'share-decoder-input-output-embed': False,
+
+        'no-pretrained-weights': True,
+
+        'validate-after-updates': 1,
+        "eval-wer": True,
+    })
+    del params['zero-infinity']
+    del params['post-process']
+    del params['best-checkpoint-metric']
+
+    return args, params
+
+
+@submit.register_sweep
+def sweep_sup_s2s_tmp(base_args):
+    lrs = [1e-04]
+    checkpoints = [
+        Path('logs/w2v.base.250k/dim704.enclyrs17.lr0.0001/'),
+    ]
+    param_sweeps = [
+        (
+            f'{checkpoint.name}/lr{lr}',
+            {
+                'w2v-path': checkpoint / 'checkpoint_best.pt',
+                'lr': lr,
+            },
+        )
+        for checkpoint in checkpoints
+        for lr in lrs
+    ]
+    submit.run_sweeps(sup_tmp, base_args, base_params, param_sweeps, dataset='lab.10h')
 
 
 if __name__ == '__main__':

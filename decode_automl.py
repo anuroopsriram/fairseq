@@ -82,6 +82,11 @@ def get_args():
         "--time-limit", default="48:00:00", help="time limit in minutes"
     )
 
+    parser.add_argument("--lmwt_min", default=0., type=float)
+    parser.add_argument("--lmwt_max", default=5., type=float)
+    parser.add_argument("--wrdsc_min", default=-5., type=float)
+    parser.add_argument("--wrdsc_max", default=5., type=float)
+
     args = parser.parse_args()
     return args
 
@@ -152,8 +157,10 @@ def get_params(args):
         fixedparam("beam", args.beam),
         fixedparam("beam_threshold", args.beam_threshold),
         fixedparam("beam_tokens", args.beam_tokens),
-        rangeparam("lm_weight", 0.0, 5.0),
-        rangeparam("word_score", -5.0, 5.0),
+        # rangeparam("lm_weight", 0.0, 5.0),
+        # rangeparam("word_score", -5.0, 5.0),
+        rangeparam("lm_weight", args.lmwt_min, args.lmwt_max),
+        rangeparam("word_score", args.wrdsc_min, args.wrdsc_max),
     ]
     if args.remove_bpe:
         params.append(fixedparam("remove_bpe", args.remove_bpe))

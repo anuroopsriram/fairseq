@@ -38,13 +38,13 @@ def add_asr_eval_argument(parser):
         help="wfstlm on dictonary\
 output units",
     )
-    parser.add_argument(
-        "--lm-weight",
-        "--lm_weight",
-        type=float,
-        default=0.2,
-        help="weight for lm while interpolating with neural score",
-    )
+    # parser.add_argument(
+    #     "--lm-weight",
+    #     "--lm_weight",
+    #     type=float,
+    #     default=0.2,
+    #     help="weight for lm while interpolating with neural score",
+    # )
     parser.add_argument(
         "--rnnt_len_penalty", default=-0.5, help="rnnt length penalty on word level"
     )

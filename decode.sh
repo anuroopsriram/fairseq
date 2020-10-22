@@ -29,7 +29,8 @@ echo python decode_automl.py \
   --prefix $PREFIX \
   -g 1 -j 8 --num-runs 128 \
   --partition dev,learnfair \
-  --constraint $CONSTRAINT
+  --constraint $CONSTRAINT \
+  --lmwt_min 1 --lmwt_max 4 --wrdsc_min -4 --wrdsc_max 1
 
 
 #DECODER="fairseqlm"

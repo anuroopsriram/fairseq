@@ -118,9 +118,9 @@ def dump_emissions(base_args):
 
 @submit.register_sweep
 def fixed_eval_4glm(base_args):
-    name = f'lmwt{base_args.lm_weight}.wdsc{base_args.word_score}'
+    name = f'lmwt{base_args.lmwt}.wdsc{base_args.word_score}'
     hyperparams = {
-        'lm-weight': base_args.lm_weight,
+        'lm-weight': base_args.lmwt,
         'word-score': base_args.word_score,
     }
     param_sweeps = []
@@ -136,9 +136,9 @@ def fixed_eval_4glm(base_args):
 
 @submit.register_sweep
 def fixed_eval_translm(base_args):
-    name = f'lmwt{base_args.lm_weight}.wdsc{base_args.word_score}'
+    name = f'lmwt{base_args.lmwt}.wdsc{base_args.word_score}'
     hyperparams = {
-        'lm-weight': base_args.lm_weight,
+        'lm-weight': base_args.lmwt,
         'word-score': base_args.word_score,
     }
     param_sweeps = []
@@ -198,7 +198,8 @@ if __name__ == '__main__':
     parser.add_argument('--start', type=int, default=0)
     parser.add_argument('--splits', type=str, nargs='*', default=data_splits)
 
-    parser.add_argument('--lm_weight', type=float, required=False)
+    # parser.add_argument('--lm_weight', type=float, required=False)
+    parser.add_argument('--lmwt', type=float, required=False)
     parser.add_argument('--word_score', type=float, required=False)
 
     parser.set_defaults(data='/checkpoint/abaevski/data/speech/libri/960h/wav2vec/raw/')

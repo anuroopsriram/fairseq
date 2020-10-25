@@ -149,13 +149,17 @@ def w2v_conformer_relpos_s2s(args, params):
         'arch': 'wav2vec_seq2seq',
         'find-unused-parameters': True,
         'layerdrop': 0.1,
-        'decoder-layerdrop': 0.1,
         'mask-channel-prob': 0.3,
 
-        'decoder-layers': 8,  # TODO
-        'decoder-embed-dim': 1024,
-        'decoder-ffn-embed-dim': 4096,
-        'decoder-attention-heads': 16,
+        # 'decoder-layers': 3,
+        # 'decoder-embed-dim': 1024,
+        # 'decoder-ffn-embed-dim': 4096,
+        # 'decoder-attention-heads': 16,
+
+        'decoder-layers': 2,
+        'decoder-embed-dim': 640,
+        'decoder-ffn-embed-dim': 1024,
+        'decoder-attention-heads': 8,
 
         'freeze-finetune-updates': 10000,
         'validate-after-updates': 10000,
@@ -166,6 +170,7 @@ def w2v_conformer_relpos_s2s(args, params):
         'decay-steps': int(max_update * 0.4),
         'final-lr-scale': 0.05,
 
+        'decoder-layerdrop': 0.1,
         'decoder-dropout': 0.2,
         'decoder-activation-dropout': 0.2,
         'decoder-attention-dropout': 0.2,
@@ -174,11 +179,12 @@ def w2v_conformer_relpos_s2s(args, params):
 
         'share-decoder-input-output-embed': False,
 
-        'log-interval': 100,
+        'log-interval': 500,
+        'eval-wer': True,
     })
     del params['zero-infinity']
     del params['post-process']
-    del params['best-checkpoint-metric']
+    # del params['best-checkpoint-metric']
 
     return args, params
 
@@ -220,10 +226,11 @@ def sup_conformer_relpos_s2s(args, params):
         'share-decoder-input-output-embed': False,
 
         'no-pretrained-weights': True,
+        'eval-wer': True,
     })
     del params['zero-infinity']
     del params['post-process']
-    del params['best-checkpoint-metric']
+    # del params['best-checkpoint-metric']
 
     return args, params
 
@@ -455,22 +462,42 @@ def sweep_w2v_conformer_400k_4glm_960h(base_args):
 
 @submit.register_sweep
 def sweep_w2v_conformer_relpos_s2s_960h(base_args):
-    # lrs = [2e-05, 4e-05, 1e-04]
     lrs = [1e-04]
     checkpoints = [
         Path('logs/w2v.conformer.relpos.400k/dim512.enclyrs17.lr0.0005.rpemb16.unlab'),
     ]
+    declyrs = [2, 3]
+    lds = [0.15]
+    dos = [0.3]
+    decparams = [
+        # (640, 1024, 8),
+        (512, 768, 8)
+    ]
     param_sweeps = [
         (
-            f'{checkpoint.name}/lr{lr}',
+            f'{checkpoint.name}/lr{lr}.declyrs{declyr}.ld{ld}.do{do}.ddim{decdim}.dffndim{decffndim}.dhd{dechead}',
             {
+                'decoder-layerdrop': ld,
+                'decoder-dropout': do,
+                'decoder-activation-dropout': do,
+                'decoder-attention-dropout': do,
+
+                'decoder-embed-dim': decdim,
+                'decoder-ffn-embed-dim': decffndim,
+                'decoder-attention-heads': dechead,
+
                 'w2v-path': checkpoint / 'checkpoint_best.pt',
                 'lr': lr,
                 "eval-wer": True,
+                "decoder-layers": declyr,
             },
         )
         for checkpoint in checkpoints
         for lr in lrs
+        for declyr in declyrs
+        for ld in lds
+        for do in dos
+        for (decdim, decffndim, dechead) in decparams
     ]
     submit.run_sweeps(w2v_conformer_relpos_s2s, base_args, base_params, param_sweeps, dataset='lab.960h')
     # submit.run_sweeps(w2v_conformer_relpos_s2s, base_args, base_params, param_sweeps, dataset='lab.10h')

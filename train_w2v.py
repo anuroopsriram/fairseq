@@ -156,6 +156,24 @@ def w2v_conformer_relpos_2x100k(args, params):
     return args, params
 
 
+def w2v_conformer_relpos_2x200k(args, params):
+    args.name = args.name or 'w2v.conformer.relpos.2x200k'
+    args.nodes = 2
+    params.update({
+        'transformer-type': 'conformer',
+        'encoder-layers': 17,
+        'encoder-embed-dim': 512,
+        'encoder-ffn-embed-dim': 512,
+        'encoder-attention-heads': 8,
+        'total-num-update': 200000,
+        'max-update': 200000,
+        'use-rel-posn-mha': True,
+        'num-relpos-embeds': 16,
+        'lin-dropout': 0.1,
+    })
+    return args, params
+
+
 def w2v_conformer_relpos_400k(args, params):
     args.name = args.name or 'w2v.conformer.relpos.400k'
     args.nodes = 8
@@ -435,6 +453,43 @@ def sweep_w2v_conformer_partial_relpos_250k_17lyrs(base_args):
         for name, mhalst in rel_posn_mha_list.items()
     ]
     submit.run_sweeps(w2v_conformer_relpos_250k, base_args, base_params, param_sweeps)
+
+
+@submit.register_sweep
+def sweep_w2v_conformer_transformer_relpos_250k_17lyrs(base_args):
+    dims = [512]
+    num_relpos_embeds = [16]
+    # lrs = [1e-3]
+    lrs = [3e-4]
+    encoder_layers = [17]
+    conformer_list = {
+        'none': ('transformer',) * 17,
+        'all': ('conformer',) * 17,
+        'first4': ('conformer',) * 4 + ('transformer',) * 13,
+        'last4': ('transformer',) * 13 + ('conformer',) * 4,
+        'first8': ('conformer',) * 8 + ('transformer',) * 9,
+        'last8': ('transformer',) * 9 + ('conformer',) * 8,
+        'alt': ('transformer', 'conformer') * 8 + ('transformer',),
+    }
+    param_sweeps = [
+        (
+            f'dim{dim}.enclyrs{enc_lyrs}.lr{lr}.rpemb{rpemb}.conftrans{name}',
+            {
+                'encoder-embed-dim': dim,
+                'encoder-ffn-embed-dim': dim,
+                'lr': lr,
+                'encoder-layers': enc_lyrs,
+                'num-relpos-embeds': rpemb,
+                'conformer-list': conflst,
+            },
+        )
+        for dim in dims
+        for lr in lrs
+        for enc_lyrs in encoder_layers
+        for rpemb in num_relpos_embeds
+        for name, conflst in conformer_list.items()
+    ]
+    submit.run_sweeps(w2v_conformer_relpos_2x200k, base_args, base_params, param_sweeps)
 
 
 @submit.register_sweep

@@ -357,6 +357,12 @@ class Wav2Vec2Model(BaseFairseqModel):
             default=0.1,
             type=float
         )
+        parser.add_argument(
+            '--conformer-list',
+            default=None,
+            metavar="EXPR",
+            type=str,
+        )
 
     def __init__(self, args):
         super().__init__()
@@ -846,6 +852,10 @@ class TransformerEncoder(nn.Module):
         self.pos_conv = nn.utils.weight_norm(self.pos_conv, name="weight", dim=2)
         self.pos_conv = nn.Sequential(self.pos_conv, SamePad(args.conv_pos), nn.GELU())
 
+        self.conformer_list = None
+        if getattr(args, "conformer_list", None):
+            self.conformer_list = eval(getattr(args, "conformer_list", "None"))
+
         self.layers = nn.ModuleList(
             [
                 self.create_transformer_layer(args, i)
@@ -860,7 +870,12 @@ class TransformerEncoder(nn.Module):
         self.apply(init_bert_params)
 
     def create_transformer_layer(self, args, lyrnum=None):
-        if args.transformer_type == 'transformer':
+        if self.conformer_list:
+            trans_type = self.conformer_list[lyrnum]
+        else:
+            trans_type = args.transformer_type
+
+        if trans_type == 'transformer':
             layer = TransformerSentenceEncoderLayer(
                 embedding_dim=self.embedding_dim,
                 ffn_embedding_dim=args.encoder_ffn_embed_dim,
@@ -871,7 +886,7 @@ class TransformerEncoder(nn.Module):
                 activation_fn=args.activation_fn,
                 layer_norm_first=args.layer_norm_first,
             )
-        elif args.transformer_type == 'conformer':
+        elif trans_type == 'conformer':
             use_rel_posn_mha = args.use_rel_posn_mha
             if use_rel_posn_mha and args.rel_posn_mha_list is not None:
                 rel_posn_mha_list = eval(args.rel_posn_mha_list)
@@ -892,6 +907,9 @@ class TransformerEncoder(nn.Module):
                 num_relpos_embeds=args.num_relpos_embeds,
                 lin_dropout=args.lin_dropout,
             )
+        else:
+            raise Exception(f"Invalid transformer type: {trans_type}")
+
         return layer
 
     def forward(self, x, padding_mask=None):

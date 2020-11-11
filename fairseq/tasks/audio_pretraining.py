@@ -13,6 +13,7 @@ from fairseq.data.data_utils import post_process
 from fairseq.data import FileAudioDataset, Dictionary, AddTargetDataset, encoders
 from . import FairseqTask, register_task
 from .. import utils
+from ..data.audio.audio_augment_dataset import AudioAugmentDataset
 from ..data.audio.raw_audio_dataset import LogMelAudioDataset
 from ..logging import metrics
 
@@ -109,11 +110,67 @@ class AudioPretrainingTask(FairseqTask):
             help="compute WER",
         )
         parser.add_argument(
-            "--remove-bpe",
-            "--post-process",
+            "--eval-wer-remove-bpe",
+            "--eval-wer-post-process",
             default="letter",
             help="remove BPE tokens before scoring (can be set to sentencepiece, letter, and more)",
         )
+        parser.add_argument(
+            "--augment-audio",
+            action='store_true',
+            help="apply data augmentation",
+        )
+        parser.add_argument(
+            "--augment-source-prob",
+            default=0.,
+            type=float,
+            help="probabilty of augmenting source audio",
+        )
+        parser.add_argument(
+            "--augment-target-prob",
+            default=0.,
+            type=float,
+            help="probabilty of augmenting target audio",
+        )
+        parser.add_argument(
+            "--augmentations",
+            default="additive,pitch,speed,reverb",
+            type=str,
+            help="max pitch shift",
+        )
+        parser.add_argument(
+            "--snr-min",
+            default=5.,
+            type=float,
+        )
+        parser.add_argument(
+            "--snr-max",
+            default=15.,
+            type=float,
+        )
+        parser.add_argument(
+            "--pitch-shift-std",
+            default=200.,
+            type=float,
+        )
+        parser.add_argument(
+            "--speed-std",
+            default=0.1,
+            type=float,
+        )
+
+        # parser.add_argument(
+        #     "--augment-pitch-shift",
+        #     default=300.,
+        #     type=float,
+        #     help="max pitch shift",
+        # )
+        # parser.add_argument(
+        #     "--augment-time-drop",
+        #     default=40,
+        #     type=int,
+        #     help="max time drop in number of frames",
+        # )
 
     def __init__(self, args, source_dictionary=None):
         super().__init__(args)
@@ -158,7 +215,7 @@ class AudioPretrainingTask(FairseqTask):
                 min_sample_size=self.args.max_sample_size,
                 min_length=self.args.min_sample_size,
                 pad=self.args.labels is not None or self.args.enable_padding,
-                normalize=self.args.normalize,
+                normalize=(self.args.normalize and not self.args.augment_audio),
             )
 
         if self.args.labels:
@@ -181,6 +238,8 @@ class AudioPretrainingTask(FairseqTask):
                 process_label=process_label,
                 add_to_input=not self.is_ctc,
             )
+        if self.args.augment_audio:
+            self.datasets[split] = AudioAugmentDataset(self.datasets[split], self.args, self.args.normalize)
 
     @property
     def source_dictionary(self):
@@ -214,11 +273,11 @@ class AudioPretrainingTask(FairseqTask):
     def _inference_with_wer(self, generator, sample, model):
         import editdistance
 
-        def decode(toks, escape_unk=False):
+        def decode(toks, escape_unk=True):
             s = self.target_dictionary.string(
                 toks.int().cpu(),
-                self.args.remove_bpe,
-                escape_unk=True,
+                self.args.eval_wer_remove_bpe,
+                escape_unk=escape_unk,
                 extra_symbols_to_ignore={generator.eos},
             )
             if self.tokenizer:
@@ -234,16 +293,10 @@ class AudioPretrainingTask(FairseqTask):
                 utils.strip_pad(sample["target"][i], self.target_dictionary.pad()),
                 escape_unk=True,
             )
-            # print(i, "Hypothesis:", hyp)
-            # print(i, "Reference:", ref)
-            hyp_words = post_process(hyp, self.args.remove_bpe).strip("_").split("_")
-            ref_words = post_process(ref, self.args.remove_bpe).strip("_").split("_")
-            # print(i, "Hypothesis words:", hyp_words)
-            # print(i, "Reference words:", ref_words)
+            hyp_words = hyp.split()
+            ref_words = ref.split()
             num_errors += editdistance.eval(hyp_words, ref_words)
             num_tokens += len(ref_words)
-            # print(i, "Num errors:", num_errors)
-            # print(i, "Num tokens:", num_tokens)
         return {
             "num_word_errors": num_errors,
             "num_words": num_tokens,

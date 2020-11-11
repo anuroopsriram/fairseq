@@ -84,13 +84,24 @@ class RawAudioDataset(FairseqDataset):
             return {}
 
         sources = [s["source"] for s in samples]
-        sizes = [len(s) for s in sources]
+        collated_sources, padding_mask = self._collate_sources(sources)
+        input = {"source": collated_sources}
 
+        if "target" in samples[0]:
+            targets = [s["target"] for s in samples]
+            collated_targets, _ = self._collate_sources(targets)
+            input["target"] = collated_targets
+
+        if self.pad:
+            input["padding_mask"] = padding_mask
+        return {"id": torch.LongTensor([s["id"] for s in samples]), "net_input": input}
+
+    def _collate_sources(self, sources):
+        sizes = [len(s) for s in sources]
         if self.pad:
             target_size = min(max(sizes), self.max_sample_size)
         else:
             target_size = min(min(sizes), self.max_sample_size)
-
         collated_sources = sources[0].new(len(sources), target_size)
         padding_mask = (
             torch.BoolTensor(collated_sources.shape).fill_(False) if self.pad else None
@@ -107,11 +118,7 @@ class RawAudioDataset(FairseqDataset):
                 padding_mask[i, diff:] = True
             else:
                 collated_sources[i] = self.crop_to_max_size(source, target_size)
-
-        input = {"source": collated_sources}
-        if self.pad:
-            input["padding_mask"] = padding_mask
-        return {"id": torch.LongTensor([s["id"] for s in samples]), "net_input": input}
+        return collated_sources, padding_mask
 
     def num_tokens(self, index):
         return self.size(index)

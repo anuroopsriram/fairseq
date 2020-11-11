@@ -15,11 +15,11 @@ def create_parser():
     parser.add_argument('-l', '--logdir', type=Path, default='/checkpoint/anuroops/fairseq/wav2vec')
     parser.add_argument('-m', '--mem', type=int, default=400)
     parser.add_argument('-t', '--timeout', type=int, default=72)
-    parser.add_argument('-p', '--partition', type=str, default='learnfair')
+    parser.add_argument('-p', '--partition', type=str, default='Wav2Vec')
     parser.add_argument('-n', '--nodes', type=int, default=1)
     parser.add_argument('-g', '--gpus', type=int, default=8)
     parser.add_argument('-w', '--workers', type=int, default=9)
-    parser.add_argument('--port', type=int, default=13359)
+    parser.add_argument('--port', type=int, default=13349)
     parser.add_argument('--submit', action='store_true', default=False)
     parser.add_argument('--shards', type=int, default=1)
     parser.add_argument('--no32gb', action='store_true')
@@ -73,7 +73,7 @@ def run_local(cmd, args):
 
 def verify(params):
     if 'w2v-path' in params:
-        assert Path(params['w2v-path']).exists()
+        assert Path(params['w2v-path']).exists(), params["w2v-path"]
 
 
 def main(args, base_params, data_dir, task):

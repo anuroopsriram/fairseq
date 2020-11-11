@@ -32,6 +32,24 @@ from fairseq.modules.transformer_sentence_encoder import init_bert_params
 from fairseq.utils import buffered_arange
 
 
+class Lambda(nn.Module):
+    def __init__(self, func):
+        super().__init__()
+        self.func = func
+
+    def forward(self, x):
+        return self.func(x)
+
+
+class Permute(nn.Module):
+    def __init__(self, *dims):
+        super().__init__()
+        self.dims = dims
+
+    def forward(self, x):
+        return x.permute(*self.dims)
+
+
 @register_model("wav2vec2")
 class Wav2Vec2Model(BaseFairseqModel):
     @staticmethod
@@ -363,6 +381,15 @@ class Wav2Vec2Model(BaseFairseqModel):
             metavar="EXPR",
             type=str,
         )
+        parser.add_argument(
+            '--conformer-mha-list',
+            default=None,
+            metavar="EXPR",
+            type=str,
+        )
+        parser.add_argument(
+            "--projection-mlp-context", action="store_true", help="adds projection MLP a la BYOL"
+        )
 
     def __init__(self, args):
         super().__init__()
@@ -461,7 +488,17 @@ class Wav2Vec2Model(BaseFairseqModel):
                 nn.Linear(final_dim, final_dim * 2), nn.GLU()
             )
 
-        self.final_proj = nn.Linear(args.encoder_embed_dim, final_dim)
+        if hasattr(args, "projection_mlp_context") and args.projection_mlp_context:
+            self.final_proj = nn.Sequential(
+                nn.Linear(args.encoder_embed_dim, args.encoder_embed_dim * 2),
+                Permute(0, 2, 1),  # (B, T, D) --> (B, D, T)
+                nn.BatchNorm1d(args.encoder_embed_dim * 2),
+                Permute(0, 2, 1),  # (B, D, T) --> (B, T, D)
+                nn.ReLU(),
+                nn.Linear(args.encoder_embed_dim * 2, final_dim)
+            )
+        else:
+            self.final_proj = nn.Linear(args.encoder_embed_dim, final_dim)
 
     def upgrade_state_dict_named(self, state_dict, name):
         super().upgrade_state_dict_named(state_dict, name)
@@ -590,21 +627,12 @@ class Wav2Vec2Model(BaseFairseqModel):
 
         return logits
 
-    def forward(self, source, padding_mask=None, mask=True, features_only=False):
-
-        if self.feature_grad_mult > 0:
-            features = self.feature_extractor(source)
-            if self.feature_grad_mult != 1.0:
-                features = GradMultiply.apply(features, self.feature_grad_mult)
+    def forward(self, source, padding_mask=None, mask=True, features_only=False, target=None):
+        features, features_pen = self.compute_features(source)
+        if target is None:
+            unmasked_features = features.clone()
         else:
-            with torch.no_grad():
-                features = self.feature_extractor(source)
-
-        features_pen = features.float().pow(2).mean()
-
-        features = features.transpose(1, 2)
-        features = self.layer_norm(features)
-        unmasked_features = features.clone()
+            unmasked_features, _ = self.compute_features(target)
 
         if padding_mask is not None:
             extra = padding_mask.size(1) % features.size(1)
@@ -703,6 +731,19 @@ class Wav2Vec2Model(BaseFairseqModel):
             result["temp"] = curr_temp
 
         return result
+
+    def compute_features(self, source):
+        if self.feature_grad_mult > 0:
+            features = self.feature_extractor(source)
+            if self.feature_grad_mult != 1.0:
+                features = GradMultiply.apply(features, self.feature_grad_mult)
+        else:
+            with torch.no_grad():
+                features = self.feature_extractor(source)
+        features_pen = features.float().pow(2).mean()
+        features = features.transpose(1, 2)
+        features = self.layer_norm(features)
+        return features, features_pen
 
     def quantize(self, x):
         assert self.quantizer is not None
@@ -893,6 +934,12 @@ class TransformerEncoder(nn.Module):
                 assert len(rel_posn_mha_list) == args.encoder_layers
                 use_rel_posn_mha = rel_posn_mha_list[lyrnum]
 
+            use_mha = True
+            if args.conformer_mha_list is not None:
+                conformer_mha_list = eval(args.conformer_mha_list)
+                assert len(conformer_mha_list) == args.encoder_layers, f'{conformer_mha_list} {args.encoder_layers}'
+                use_mha = conformer_mha_list[lyrnum]
+
             layer = ConformerEncoderLayer(
                 embedding_dim=self.embedding_dim,
                 num_attention_heads=args.encoder_attention_heads,
@@ -906,6 +953,7 @@ class TransformerEncoder(nn.Module):
                 use_rel_posn_mha=use_rel_posn_mha,
                 num_relpos_embeds=args.num_relpos_embeds,
                 lin_dropout=args.lin_dropout,
+                use_mha=use_mha,
             )
         else:
             raise Exception(f"Invalid transformer type: {trans_type}")
@@ -1061,24 +1109,6 @@ class TransformerSentenceEncoderLayer(nn.Module):
         return x, attn
 
 
-class Lambda(nn.Module):
-    def __init__(self, func):
-        super().__init__()
-        self.func = func
-
-    def forward(self, x):
-        return self.func(x)
-
-
-class Permute(nn.Module):
-    def __init__(self, *dims):
-        super().__init__()
-        self.dims = dims
-
-    def forward(self, x):
-        return x.permute(*self.dims)
-
-
 class ConformerEncoderLayer(nn.Module):
     def __init__(
             self,
@@ -1090,10 +1120,11 @@ class ConformerEncoderLayer(nn.Module):
             activation_fn2: str = "gelu",
             kern_size: int = 32,
             ffn_scale: float = 0.5,
-            no_expand_ffn=False,
-            use_rel_posn_mha=False,
-            num_relpos_embeds=768,
-            lin_dropout=0.1,
+            no_expand_ffn: bool =False,
+            use_rel_posn_mha: bool =False,
+            num_relpos_embeds: int =768,
+            lin_dropout: float =0.1,
+            use_mha: bool = True
     ):
         super().__init__()
         self.embedding_dim = embedding_dim
@@ -1103,8 +1134,10 @@ class ConformerEncoderLayer(nn.Module):
         self.kern_size = kern_size
         self.ffn_scale = ffn_scale
         self.use_rel_posn_mha = use_rel_posn_mha
+        self.use_mha = use_mha
 
-        pad = (kern_size + 1) // 2
+        # pad = (kern_size + 1) // 2
+        pad = kern_size // 2
         self.activation_fn1 = utils.get_activation_fn(activation_fn1)
         self.activation_fn2 = utils.get_activation_fn(activation_fn2)
         embedding_dim_expand = embedding_dim if no_expand_ffn else embedding_dim * 4
@@ -1116,23 +1149,24 @@ class ConformerEncoderLayer(nn.Module):
             nn.Linear(embedding_dim_expand, embedding_dim),
             nn.Dropout(dropout),
         )
-        self.self_attn_layer_norm = nn.LayerNorm(embedding_dim)
-        if use_rel_posn_mha:
-            self.self_attn = RelativePositionalMultiHeadAttention(
-                embedding_dim,
-                num_attention_heads,
-                num_relpos_embeds=num_relpos_embeds,
-                lin_dropout=lin_dropout,
-                att_dropout=attention_dropout,
-            )
-        else:
-            self.self_attn = MultiheadAttention(
-                embedding_dim,
-                num_attention_heads,
-                dropout=attention_dropout,
-                self_attention=True,
-            )
-        self.self_attn_dropout = nn.Dropout(dropout)
+        if self.use_mha:
+            self.self_attn_layer_norm = nn.LayerNorm(embedding_dim)
+            if use_rel_posn_mha:
+                self.self_attn = RelativePositionalMultiHeadAttention(
+                    embedding_dim,
+                    num_attention_heads,
+                    num_relpos_embeds=num_relpos_embeds,
+                    lin_dropout=lin_dropout,
+                    att_dropout=attention_dropout,
+                )
+            else:
+                self.self_attn = MultiheadAttention(
+                    embedding_dim,
+                    num_attention_heads,
+                    dropout=attention_dropout,
+                    self_attention=True,
+                )
+            self.self_attn_dropout = nn.Dropout(dropout)
         self.conv = nn.Sequential(
             nn.LayerNorm(embedding_dim),
             Permute(1, 2, 0),  # T x B x C -> B x C x T
@@ -1169,20 +1203,23 @@ class ConformerEncoderLayer(nn.Module):
         x = x + self.ffn_scale * self.ff1(x)
         residual = x
         # T x B x C
-        x = self.self_attn_layer_norm(x)
-        if self.use_rel_posn_mha:
-            x, attn = self.self_attn(
-                x, self_attn_padding_mask=self_attn_padding_mask
-            )
+        if self.use_mha:
+            x = self.self_attn_layer_norm(x)
+            if self.use_rel_posn_mha:
+                x, attn = self.self_attn(
+                    x, self_attn_padding_mask=self_attn_padding_mask
+                )
+            else:
+                x, attn = self.self_attn(
+                    query=x,
+                    key=x,
+                    value=x,
+                    key_padding_mask=self_attn_padding_mask,
+                    need_weights=need_weights,
+                )
+            x = residual + self.self_attn_dropout(x)
         else:
-            x, attn = self.self_attn(
-                query=x,
-                key=x,
-                value=x,
-                key_padding_mask=self_attn_padding_mask,
-                need_weights=need_weights,
-            )
-        x = residual + self.self_attn_dropout(x)
+            attn = None
         x = x + self.conv(x)
         x = x + self.ffn_scale * self.ff2(x)
         x = self.final_layer_norm(x)

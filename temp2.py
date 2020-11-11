@@ -2,7 +2,7 @@ from time import time
 
 import torch
 
-from fairseq.models.wav2vec import ConformerEncoderLayer, TransformerSentenceEncoderLayer
+from fairseq.models.wav2vec import ConformerEncoderLayer
 
 
 def params(model):
@@ -19,23 +19,20 @@ def timeit(model, x):
     return time() - start
 
 
-if __name__ == '__main__':
-    trans = TransformerSentenceEncoderLayer().cuda()
-    conf = ConformerEncoderLayer(embedding_dim=512).cuda()
-    # confRelPos = ConformerEncoderLayer(
-    #     embedding_dim=512, use_rel_posn_mha=True, num_relpos_embeds=16).cuda()
+def main(x, **kwargs):
+    print('Params', kwargs)
+    conf = ConformerEncoderLayer(use_rel_posn_mha=True, **kwargs).cuda()
+    print('Params ConformerRelPos', params(conf))
+    time = timeit(conf, x)
+    print(time, "\n")
 
+
+if __name__ == '__main__':
     B = 32
     T = 500
-    C1 = 768
-    C2 = 512
-    x1 = torch.randn((T, B, C1)).cuda()
-    x2 = torch.randn((T, B, C2)).cuda()
+    C = 768
+    x = torch.randn((T, B, C)).cuda()
 
-    print('Params Transformer', params(trans))
-    print('Params Conformer', params(conf))
-    # print('Params ConformerRelPos', params(confRelPos))
-
-    print('Transformer', timeit(trans, x1))
-    print('Conformer', timeit(conf, x2))
-    # print('ConformerRelPos', timeit(confRelPos, x2))
+    # for ks in [4, 6, 12, 24, 32]:
+    for ks in [3, 5, 7, 11, 15, 32]:
+        main(x, kern_size=ks)

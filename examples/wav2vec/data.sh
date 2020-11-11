@@ -55,39 +55,39 @@ DATAROOT='/checkpoint/anuroops/data/libris/'
 #
 #curl https://dl.fbaipublicfiles.com/fairseq/wav2vec/dict.ltr.txt > ${DATAROOT}/lab/dict.ltr.txt
 
-
-# Create labeled data (10 Hours)
-mkdir -p ${DATAROOT}/tmp/lab_train_10h
-rm -rf ${DATAROOT}/tmp/lab_train_10h/*
-for part in "${LAB_TRAIN[@]}"; do
-  ln -s  ${RAWDATA}/${part} ${DATAROOT}/tmp/lab_train_10h/
-done
-python examples/wav2vec/wav2vec_manifest.py ${DATAROOT}/tmp/lab_train_10h \
-   --dest ${DATAROOT}/tmp/lab_train_10h \
-   --ext flac --valid-percent 0.9
-
-mkdir -p ${DATAROOT}/tmp/lab_val
-rm -rf ${DATAROOT}/tmp/lab_val/*
-for part in "${LAB_VAL[@]}"; do
-  ln -s  ${RAWDATA}/${part} ${DATAROOT}/tmp/lab_val/
-done
-python examples/wav2vec/wav2vec_manifest.py ${DATAROOT}/tmp/lab_val \
-   --dest ${DATAROOT}/tmp/lab_val \
-   --ext flac --valid-percent 0.
-
-split=train
-python examples/wav2vec/libri_labels.py \
-    ${DATAROOT}/tmp/lab_train_10h/train.tsv \
-    --output-dir ${DATAROOT}/lab --output-name $split
-cp ${DATAROOT}/tmp/lab_train_10h/train.tsv ${DATAROOT}/lab/train.tsv
-split=dev_other
-python examples/wav2vec/libri_labels.py \
-    ${DATAROOT}/tmp/lab_val/train.tsv \
-    --output-dir ${DATAROOT}/lab --output-name $split
-cp ${DATAROOT}/tmp/lab_val/train.tsv ${DATAROOT}/lab/dev_other.tsv
-
-curl https://dl.fbaipublicfiles.com/fairseq/wav2vec/dict.ltr.txt > ${DATAROOT}/lab/dict.ltr.txt
-
+#
+## Create labeled data (10 Hours)
+#mkdir -p ${DATAROOT}/tmp/lab_train_10h
+#rm -rf ${DATAROOT}/tmp/lab_train_10h/*
+#for part in "${LAB_TRAIN[@]}"; do
+#  ln -s  ${RAWDATA}/${part} ${DATAROOT}/tmp/lab_train_10h/
+#done
+#python examples/wav2vec/wav2vec_manifest.py ${DATAROOT}/tmp/lab_train_10h \
+#   --dest ${DATAROOT}/tmp/lab_train_10h \
+#   --ext flac --valid-percent 0.9
+#
+#mkdir -p ${DATAROOT}/tmp/lab_val
+#rm -rf ${DATAROOT}/tmp/lab_val/*
+#for part in "${LAB_VAL[@]}"; do
+#  ln -s  ${RAWDATA}/${part} ${DATAROOT}/tmp/lab_val/
+#done
+#python examples/wav2vec/wav2vec_manifest.py ${DATAROOT}/tmp/lab_val \
+#   --dest ${DATAROOT}/tmp/lab_val \
+#   --ext flac --valid-percent 0.
+#
+#split=train
+#python examples/wav2vec/libri_labels.py \
+#    ${DATAROOT}/tmp/lab_train_10h/train.tsv \
+#    --output-dir ${DATAROOT}/lab --output-name $split
+#cp ${DATAROOT}/tmp/lab_train_10h/train.tsv ${DATAROOT}/lab/train.tsv
+#split=dev_other
+#python examples/wav2vec/libri_labels.py \
+#    ${DATAROOT}/tmp/lab_val/train.tsv \
+#    --output-dir ${DATAROOT}/lab --output-name $split
+#cp ${DATAROOT}/tmp/lab_val/train.tsv ${DATAROOT}/lab/dev_other.tsv
+#
+#curl https://dl.fbaipublicfiles.com/fairseq/wav2vec/dict.ltr.txt > ${DATAROOT}/lab/dict.ltr.txt
+#
 
 ##### OLD ######
 
@@ -144,8 +144,7 @@ curl https://dl.fbaipublicfiles.com/fairseq/wav2vec/dict.ltr.txt > ${DATAROOT}/l
 ##bash examples/speech_recognition/datasets/prepare-librispeech.sh ${RAWDATA} ${PROCSUPDATA}
 #
 
-
-
-# COPY
-cp /checkpoint/abaevski/data/speech/libri/960h/wav2vec/raw/*.{lst,ltr,tsv,wrd,txt} /checkpoint/anuroops/data/libris/lab.960h/ -rf
-
+#
+## COPY
+#cp /checkpoint/abaevski/data/speech/libri/960h/wav2vec/raw/*.{lst,ltr,tsv,wrd,txt} /checkpoint/anuroops/data/libris/lab.960h/ -rf
+#

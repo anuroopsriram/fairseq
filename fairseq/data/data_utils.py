@@ -265,6 +265,10 @@ def post_process(sentence: str, symbol: str):
         sentence = sentence.replace(" ", "").replace("\u2581", " ").strip()
     elif symbol == 'wordpiece':
         sentence = sentence.replace(" ", "").replace("_", " ").strip()
+    elif symbol == "speech_sentencepiece":
+        sentence = sentence.replace(" ", "").replace("_", " ").strip()
+    elif symbol == "speech_wordpiece":
+        sentence = (sentence + " ").replace("@@ ", "").rstrip()
     elif symbol == 'letter':
         sentence = sentence.replace(" ", "").replace("|", " ").strip()
     elif symbol == "_EOW":

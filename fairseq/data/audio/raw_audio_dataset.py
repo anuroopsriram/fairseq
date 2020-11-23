@@ -84,19 +84,21 @@ class RawAudioDataset(FairseqDataset):
             return {}
 
         sources = [s["source"] for s in samples]
-        collated_sources, padding_mask = self._collate_sources(sources)
+        collated_sources, padding_mask = self._collate_sources(sources, seed=samples[0]["id"])
         input = {"source": collated_sources}
 
         if "target" in samples[0]:
             targets = [s["target"] for s in samples]
-            collated_targets, _ = self._collate_sources(targets)
+            collated_targets, _ = self._collate_sources(targets, seed=samples[0]["id"])
             input["target"] = collated_targets
 
         if self.pad:
             input["padding_mask"] = padding_mask
         return {"id": torch.LongTensor([s["id"] for s in samples]), "net_input": input}
 
-    def _collate_sources(self, sources):
+    def _collate_sources(self, sources, seed=None):
+        np.random.seed(seed)
+
         sizes = [len(s) for s in sources]
         if self.pad:
             target_size = min(max(sizes), self.max_sample_size)

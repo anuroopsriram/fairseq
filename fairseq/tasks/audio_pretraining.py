@@ -140,7 +140,7 @@ class AudioPretrainingTask(FairseqTask):
         )
         parser.add_argument(
             "--snr-min",
-            default=5.,
+            default=10.,
             type=float,
         )
         parser.add_argument(
@@ -150,7 +150,7 @@ class AudioPretrainingTask(FairseqTask):
         )
         parser.add_argument(
             "--pitch-shift-std",
-            default=200.,
+            default=60.,
             type=float,
         )
         parser.add_argument(
@@ -239,7 +239,7 @@ class AudioPretrainingTask(FairseqTask):
                 add_to_input=not self.is_ctc,
             )
         if self.args.augment_audio:
-            self.datasets[split] = AudioAugmentDataset(self.datasets[split], self.args, self.args.normalize)
+            self.datasets[split] = AudioAugmentDataset(self.datasets[split], self.args, self.args.normalize, split)
 
     @property
     def source_dictionary(self):

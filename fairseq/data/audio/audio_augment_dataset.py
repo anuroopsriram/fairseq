@@ -47,12 +47,14 @@ class ChainRunner:
 
 
 class AudioAugmentDataset(BaseWrapperDataset):
-    def __init__(self, dataset, args, normalize):
+    def __init__(self, dataset, args, normalize, split):
+        print("AUGMENT DATASET")
         super().__init__(dataset)
-        assert args.augment_source_prob > 0 or args.augment_target_prob > 0, \
-            "Atleast one of source and target needs to be augmented"
+        # assert args.augment_source_prob > 0 or args.augment_target_prob > 0, \
+        #     "Atleast one of source and target needs to be augmented"
         self.normalize = normalize
         self.args = args
+        self.split = split
         self.noise_root = Path("/checkpoint/anuroops/data/musan")
         self.noise_files = list(self.noise_root.rglob("*.wav"))
 
@@ -103,7 +105,7 @@ class AudioAugmentDataset(BaseWrapperDataset):
                 return feats / feats.abs().max()
 
         def _maybe_aug(feats, prob):
-            if np.random.random() < prob:
+            if self.split == "train" and np.random.random() < prob:
                 aug = self.runner(feats)
                 if "additive" in self.args.augmentations:
                     noise_generator = self.random_noise(feats.shape[0])

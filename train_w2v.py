@@ -56,8 +56,26 @@ base_params = {
 def w2v_base_250k(args, params):
     args.name = args.name or 'w2v.base.250k'
     args.nodes = 4
-    params['total-num-update'] = 2500000
-    params['max-update'] = 2500000
+    params['total-num-update'] = 250000
+    params['max-update'] = 250000
+    # params['total-num-update'] = 400000
+    # params['max-update'] = 400000
+    return args, params
+
+
+def w2v_base_4x400k(args, params):
+    args.name = args.name or 'w2v.base.4x400'
+    args.nodes = 4
+    params['total-num-update'] = 400000
+    params['max-update'] = 400000
+    return args, params
+
+
+def w2v_base_8x400k(args, params):
+    args.name = args.name or 'w2v.base.8x400k'
+    args.nodes = 8
+    params['total-num-update'] = 400000
+    params['max-update'] = 400000
     return args, params
 
 #
@@ -307,27 +325,64 @@ def w2v_base_250k(args, params):
 
 #### Sweeps
 
+@submit.register_sweep
+def sweep_w2v_base_mlp(base_args):
+    lrs = [5e-4]
+    mlp_params = {
+        # (mlpContext, mlpTarget, BatchNorm, Scale, Activation)
+
+        # (True, True, True, 2, "relu"),
+        (True, True, True, 2, "gelu"),
+        (True, True, False, 2, "swish"),
+        (True, True, True, 4, "relu"),
+        (True, True, False, 2, "relu"),
+    }
+    param_sweeps = [
+        (
+            f"lr{lr}.contextmlp{contextMLP}.tgtmlp{targetMLP}.bn{batchnorm}.act{activation}",
+            {
+                "lr": lr,
+                "projection-mlp-context": contextMLP,
+                "target-mlp-context": targetMLP,
+                "mlp-nobn": not batchnorm,
+                "mlp-scale": scale,
+                "mlp-activation": activation,
+            },
+        )
+        for contextMLP, targetMLP, batchnorm, scale, activation in mlp_params
+        for lr in lrs
+    ]
+    base_args.name = base_args.name or 'w2v.base.4x400.mlp'
+    submit.run_sweeps(w2v_base_4x400k, base_args, base_params, param_sweeps)
+
 
 @submit.register_sweep
 def sweep_w2v_base_250k_mlp(base_args):
-    # lrs = [5e-4]
-    lrs = [2e-3, 2e-4]
+    # lrs = [5e-4, 2e-3, 2e-4]
+    # lrs = [5e-4, 2e-4]
+    lrs = [1e-3, 5e-4]
     projs = [
-        False,
+        # False,
+        True,
+    ]
+    tgtprojs = [
         True,
     ]
     param_sweeps = [
         (
-            f"lr{lr}.mlp{proj}",
+            f"lr{lr}.mlp{proj}.mlptgt{tgtproj}",
             {
                 "lr": lr,
                 "projection-mlp-context": proj,
+                "target-mlp-context": tgtproj,
             },
         )
+        for tgtproj in tgtprojs
         for proj in projs
         for lr in lrs
     ]
-    submit.run_sweeps(w2v_base_250k, base_args, base_params, param_sweeps)
+    # submit.run_sweeps(w2v_base_250k, base_args, base_params, param_sweeps)
+    submit.run_sweeps(w2v_base_8x400k, base_args, base_params, param_sweeps)
 
 #
 # @submit.register_sweep

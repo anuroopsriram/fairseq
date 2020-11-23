@@ -75,72 +75,86 @@ def w2v_base_2x100k(args, params):
 
 @submit.register_sweep
 def sweep_w2v_base_2x100k(base_args):
-    checkpoints = {
-        # # No Augmentation
-        # "lr0.0005.noaug.unlab": Path("logs/w2v.base.100k.augment/lr0.0005.noaug.unlab"),
-        # # Augmentations LayerDrop = 0.05
-        # "lr0.0005.sourceaug1.targetaug0.0.augsadditive": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug0.0.augsadditive.unlab"),
-        # "lr0.0005.sourceaug0.0.targetaug1.augsadditive": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug0.0.targetaug1.augsadditive.unlab"),
-        # "lr0.0005.sourceaug1.targetaug1.augsadditive": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive.unlab"),
-        # "lr0.0005.sourceaug1.targetaug0.0.augsspeed": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug0.0.augsspeed.unlab"),
-        # "lr0.0005.sourceaug0.0.targetaug1.augsspeed": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug0.0.targetaug1.augsspeed.unlab"),
-        # "lr0.0005.sourceaug1.targetaug1.augsspeed": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.unlab"),
-        # "lr0.0005.sourceaug1.targetaug0.0.augspitch": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug0.0.augspitch.unlab"),
-        # "lr0.0005.sourceaug0.0.targetaug1.augspitch": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug0.0.targetaug1.augspitch.unlab"),
-        # "lr0.0005.sourceaug1.targetaug1.augspitch": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug1.augspitch.unlab"),
-        # "lr0.0005.sourceaug1.targetaug0.0.augsreverb": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug0.0.augsreverb.unlab"),
-        # "lr0.0005.sourceaug0.0.targetaug1.augsreverb": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug0.0.targetaug1.augsreverb.unlab"),
-        # "lr0.0005.sourceaug1.targetaug1.augsreverb": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug1.augsreverb.unlab"),
-        # "lr0.0005.sourceaug1.targetaug0.0.augsadditive,pitch,speed,reverb": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug0.0.augsadditive,pitch,speed,reverb.unlab"),
-        # "lr0.0005.sourceaug0.0.targetaug1.augsadditive,pitch,speed,reverb": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug0.0.targetaug1.augsadditive,pitch,speed,reverb.unlab"),
-        # "lr0.0005.sourceaug1.targetaug1.augsadditive,pitch,speed,reverb": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,pitch,speed,reverb.unlab"),
-        # # Augmentations LayerDrop = 0.
-        # "lr0.0005.sourceaug1.targetaug0.0.augsadditive.ld0.0": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug0.0.augsadditive.ld0.0.unlab"),
-        # "lr0.0005.sourceaug0.0.targetaug1.augsadditive.ld0.0": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug0.0.targetaug1.augsadditive.ld0.0.unlab"),
-        # "lr0.0005.sourceaug1.targetaug1.augsadditive.ld0.0": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive.ld0.0.unlab"),
-        # "lr0.0005.sourceaug1.targetaug0.0.augsspeed.ld0.0": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug0.0.augsspeed.ld0.0.unlab"),
-        # "lr0.0005.sourceaug0.0.targetaug1.augsspeed.ld0.0": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug0.0.targetaug1.augsspeed.ld0.0.unlab"),
-        # "lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.unlab"),
-        # "lr0.0005.sourceaug1.targetaug0.0.augspitch.ld0.0": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug0.0.augspitch.ld0.0.unlab"),
-        # "lr0.0005.sourceaug0.0.targetaug1.augspitch.ld0.0": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug0.0.targetaug1.augspitch.ld0.0.unlab"),
-        # "lr0.0005.sourceaug1.targetaug1.augspitch.ld0.0": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug1.augspitch.ld0.0.unlab"),
-        # "lr0.0005.sourceaug1.targetaug0.0.augsreverb.ld0.0": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug0.0.augsreverb.ld0.0.unlab"),
-        # "lr0.0005.sourceaug0.0.targetaug1.augsreverb.ld0.0": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug0.0.targetaug1.augsreverb.ld0.0.unlab"),
-        # "lr0.0005.sourceaug1.targetaug1.augsreverb.ld0.0": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug1.augsreverb.ld0.0.unlab"),
-        # "lr0.0005.sourceaug1.targetaug0.0.augsadditive,pitch,speed,reverb.ld0.0": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug0.0.augsadditive,pitch,speed,reverb.ld0.0.unlab"),
-        # "lr0.0005.sourceaug0.0.targetaug1.augsadditive,pitch,speed,reverb.ld0.0": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug0.0.targetaug1.augsadditive,pitch,speed,reverb.ld0.0.unlab"),
-        # "lr0.0005.sourceaug1.targetaug1.augsadditive,pitch,speed,reverb.ld0.0": Path("logs/w2v.base.100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,pitch,speed,reverb.ld0.0.unlab"),
-        # No Quant
-        "noquant.lr0.0005.sourceaug1.targetaug0.0.augsadditive": Path("logs/w2v.base.100k.augment/noquant.lr0.0005.sourceaug1.targetaug0.0.augsadditive.unlab"),
-        "noquant.lr0.0005.sourceaug0.0.targetaug1.augsadditive": Path("logs/w2v.base.100k.augment/noquant.lr0.0005.sourceaug0.0.targetaug1.augsadditive.unlab"),
-        "noquant.lr0.0005.sourceaug1.targetaug1.augsadditive": Path("logs/w2v.base.100k.augment/noquant.lr0.0005.sourceaug1.targetaug1.augsadditive.unlab"),
-        "noquant.lr0.0005.sourceaug1.targetaug0.0.augsspeed": Path("logs/w2v.base.100k.augment/noquant.lr0.0005.sourceaug1.targetaug0.0.augsspeed.unlab"),
-        "noquant.lr0.0005.sourceaug0.0.targetaug1.augsspeed": Path("logs/w2v.base.100k.augment/noquant.lr0.0005.sourceaug0.0.targetaug1.augsspeed.unlab"),
-        "noquant.lr0.0005.sourceaug1.targetaug1.augsspeed": Path("logs/w2v.base.100k.augment/noquant.lr0.0005.sourceaug1.targetaug1.augsspeed.unlab"),
-        "noquant.lr0.0005.sourceaug1.targetaug0.0.augspitch": Path("logs/w2v.base.100k.augment/noquant.lr0.0005.sourceaug1.targetaug0.0.augspitch.unlab"),
-        "noquant.lr0.0005.sourceaug0.0.targetaug1.augspitch": Path("logs/w2v.base.100k.augment/noquant.lr0.0005.sourceaug0.0.targetaug1.augspitch.unlab"),
-        "noquant.lr0.0005.sourceaug1.targetaug1.augspitch": Path("logs/w2v.base.100k.augment/noquant.lr0.0005.sourceaug1.targetaug1.augspitch.unlab"),
-        "noquant.lr0.0005.sourceaug1.targetaug0.0.augsreverb": Path("logs/w2v.base.100k.augment/noquant.lr0.0005.sourceaug1.targetaug0.0.augsreverb.unlab"),
-        "noquant.lr0.0005.sourceaug0.0.targetaug1.augsreverb": Path("logs/w2v.base.100k.augment/noquant.lr0.0005.sourceaug0.0.targetaug1.augsreverb.unlab"),
-        "noquant.lr0.0005.sourceaug1.targetaug1.augsreverb": Path("logs/w2v.base.100k.augment/noquant.lr0.0005.sourceaug1.targetaug1.augsreverb.unlab"),
-        "noquant.lr0.0005.sourceaug1.targetaug0.0.augsadditive,pitch,speed,reverb": Path("logs/w2v.base.100k.augment/noquant.lr0.0005.sourceaug1.targetaug0.0.augsadditive,pitch,speed,reverb.unlab"),
-        "noquant.lr0.0005.sourceaug0.0.targetaug1.augsadditive,pitch,speed,reverb": Path("logs/w2v.base.100k.augment/noquant.lr0.0005.sourceaug0.0.targetaug1.augsadditive,pitch,speed,reverb.unlab"),
-        "noquant.lr0.0005.sourceaug1.targetaug1.augsadditive,pitch,speed,reverb": Path("logs/w2v.base.100k.augment/noquant.lr0.0005.sourceaug1.targetaug1.augsadditive,pitch,speed,reverb.unlab"),
-    }
-    for checkpoint in checkpoints.values():
-        assert checkpoint.exists(), checkpoint
+    checkpoints = [
+        # # No Aug (baseline)
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.ld0.05.noaug.unlab"),
 
-    lrs = [4e-5]
+        # # # Zero Aug
+        # # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug0.targetaug0.augsspeed.ld0.05.unlab"),
+        #
+        # # Source only
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug0.0.augsadditive.ld0.05.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug0.0.augspitch.ld0.05.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug0.0.augsreverb.ld0.05.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug0.0.augsspeed.ld0.05.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug0.0.augsadditive,pitch,speed,reverb.ld0.05.unlab"),
+        #
+        # # Target only
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug0.0.targetaug1.augsadditive.ld0.05.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug0.0.targetaug1.augspitch.ld0.05.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug0.0.targetaug1.augsreverb.ld0.05.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug0.0.targetaug1.augsspeed.ld0.05.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug0.0.targetaug1.augsadditive,pitch,speed,reverb.ld0.05.unlab"),
+        #
+        # # Both
+        # # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive.ld0.05.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive.ld0.0.unlab"),
+        # # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augspitch.ld0.05.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augspitch.ld0.0.unlab"),
+        # # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsreverb.ld0.05.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsreverb.ld0.0.unlab"),
+        # # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.05.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,pitch,speed,reverb.ld0.05.unlab"),
+        # # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,pitch,speed,reverb.ld0.0.unlab"),
+
+        # # Speed Perturb & Additive
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.05.spdstd0.05.snrmin10.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.05.spdstd0.05.snrmin5.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.05.spdstd0.05.snrmin7.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.05.spdstd0.1.snrmin10.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.05.spdstd0.1.snrmin5.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.05.spdstd0.1.snrmin7.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.05.spdstd0.2.snrmin10.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.05.spdstd0.2.snrmin5.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.05.spdstd0.2.snrmin7.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.0.spdstd0.05.snrmin10.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.0.spdstd0.05.snrmin5.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.0.spdstd0.05.snrmin7.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.0.spdstd0.1.snrmin10.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.0.spdstd0.1.snrmin5.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.0.spdstd0.1.snrmin7.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.0.spdstd0.2.snrmin10.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.0.spdstd0.2.snrmin5.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.0.spdstd0.2.snrmin7.unlab"),
+
+        # Speed Perturb
+        Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.spdstd0.05.unlab"),
+        Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.spdstd0.075.unlab"),
+        Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.spdstd0.15.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.spdstd0.25.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.spdstd0.2.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.spdstd0.3.unlab"),
+
+        # Augment
+        Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive.ld0.0.snrmin12.unlab"),
+        Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive.ld0.0.snrmin5.unlab"),
+        Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive.ld0.0.snrmin8.unlab"),
+    ]
+    for checkpoint in checkpoints:
+        assert (checkpoint / "checkpoint_best.pt").exists(), checkpoint
+
+    lrs = [2e-5]
     param_sweeps = [
         (
-            f'{checkpoint.name}/{name}.lr{lr}',
+            f'{checkpoint.name}/lr{lr}',
             {
                 'w2v-path': checkpoint / "checkpoint_best.pt",
                 'lr': lr,
             },
         )
         for lr in lrs
-        for name, checkpoint in checkpoints.items()
+        for checkpoint in checkpoints
     ]
     submit.run_sweeps(w2v_base_2x100k, base_args, base_params, param_sweeps, dataset='lab.10h')
 

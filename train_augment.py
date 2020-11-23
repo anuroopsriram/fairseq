@@ -68,10 +68,18 @@ def w2v_base_2x150k(args, params):
 
 
 def w2v_base_2x100k(args, params):
-    args.name = args.name or 'w2v.base.100k.augment'
+    args.name = args.name or 'w2v.base.2x100k.augment'
     args.nodes = 2
     params['total-num-update'] = 100000
     params['max-update'] = 100000
+    return args, params
+
+
+def w2v_base_4x250k(args, params):
+    args.name = args.name or 'w2v.base.4x250k.augment'
+    args.nodes = 4
+    params['total-num-update'] = 250000
+    params['max-update'] = 250000
     return args, params
 
 
@@ -87,13 +95,13 @@ def w2v_base_400k(args, params):
 
 @submit.register_sweep
 def sweep_w2v_base_noaug(base_args):
-    # lrs = [5e-4]
-    lrs = [5e-3]
+    lrs = [5e-4]
+    # lrs = [5e-3]
     dos = [0]
     lds = [0.05]
     param_sweeps = [
         (
-            f"lr{lr}.noaug",
+            f"lr{lr}.ld{ld}.noaug",
             {
                 'augment-audio': False,
                 "lr": lr,
@@ -108,28 +116,111 @@ def sweep_w2v_base_noaug(base_args):
         for lr in lrs
     ]
     submit.run_sweeps(w2v_base_2x100k, base_args, base_params, param_sweeps)
+    # submit.run_sweeps(w2v_base_4x250k, base_args, base_params, param_sweeps)
 
+
+# @submit.register_sweep
+# def sweep_w2v_base3(base_args):
+#     lrs = [5e-4]
+#     aug_params = [
+#         # (aug?, source_prob, target_prob, speed_std)
+#         # (False, 0, 0, 0),
+#         # (True, 0.1, 0, 0),
+#         # (True, 0.1, 0, 0.001),
+#         # (True, 0.1, 0, 0.01),
+#
+#         (True, 0, 0, 0),
+#     ]
+#     augmentations = ["speed"]
+#     dos = [0.]
+#     lds = [0.]
+#     # fgms = [0.05]
+#     param_sweeps = [
+#         (
+#             # f"lr{lr}.sourceaug{saug}.targetaug{taug}.augs{augset}.ld{ld}.spdstd{speedstd}.fgm{fgm}",
+#             f"lr{lr}.sourceaug{saug}.targetaug{taug}.augs{augset}.ld{ld}.spdstd{speedstd}.noaug",
+#             {
+#                 "lr": lr,
+#                 "dropout-input": do,
+#                 "dropout-features": do,
+#                 "dropout": do,
+#                 "encoder-layerdrop": ld,
+#
+#                 "augment-audio": aug,
+#                 "augmentations": augset,
+#                 "augment-source-prob": saug,
+#                 "augment-target-prob": taug,
+#
+#                 "speed-std": speedstd,
+#                 # "feature-grad-mult": fgm
+#                 # "normalize": False,
+#             },
+#         )
+#         for augset in augmentations
+#         for aug, saug, taug, speedstd in aug_params
+#         for do in dos
+#         for ld in lds
+#         for lr in lrs
+#         # for fgm in fgms
+#     ]
+#     submit.run_sweeps(w2v_base_2x100k, base_args, base_params, param_sweeps)
+
+
+# @submit.register_sweep
+# def sweep_w2v_base2(base_args):
+#     lrs = [5e-4]
+#     aug_probs = [
+#         (True, 0., 0.5),  # Target augmentation
+#     ]
+#     speed_stds = [
+#         0.01,
+#         0.02,
+#         0.04,
+#         0.08,
+#     ]
+#     augmentations = [
+#         "speed",
+#     ]
+#     dos = [0.]
+#     lds = [0.]
+#     param_sweeps = [
+#         (
+#             f"lr{lr}.sourceaug{saug}.targetaug{taug}.augs{augset}.ld{ld}.spdstd{speedstd}",
+#             {
+#                 "lr": lr,
+#                 "dropout-input": do,
+#                 "dropout-features": do,
+#                 "dropout": do,
+#                 "encoder-layerdrop": ld,
+#
+#                 "augment-audio": aug,
+#                 "augmentations": augset,
+#                 "augment-source-prob": saug,
+#                 "augment-target-prob": taug,
+#
+#                 "speed-std": speedstd,
+#             },
+#         )
+#         for augset in augmentations
+#         for speedstd in speed_stds
+#         for aug, saug, taug in aug_probs
+#         for do in dos
+#         for ld in lds
+#         for lr in lrs
+#     ]
+#     submit.run_sweeps(w2v_base_4x250k, base_args, base_params, param_sweeps)
 
 @submit.register_sweep
-def sweep_w2v_base(base_args):
-    # lrs = [5e-4]
-    lrs = [1e-3, 1e-5]
-    # lrs = [5e-3]
+def sweep_w2v_base_aug4(base_args):
+    lrs = [5e-4]
     aug_probs = [
-        (True, 1, 0.),  # Source augmentation
-        (True, 0., 1),  # Target augmentation
-        (True, 1, 1),  # Both augmentation
+        (True, 0, 0),  # Both augmentation
     ]
     augmentations = [
-        "additive",
         "speed",
-        # "pitch",
-        "reverb",
-        # "additive,pitch,speed,reverb",
     ]
     dos = [0]
-    # lds = [0.05]
-    lds = [0.]
+    lds = [0.05]
     param_sweeps = [
         (
             f"lr{lr}.sourceaug{saug}.targetaug{taug}.augs{augset}.ld{ld}",
@@ -151,6 +242,96 @@ def sweep_w2v_base(base_args):
         for do in dos
         for ld in lds
         for lr in lrs
+    ]
+    submit.run_sweeps(w2v_base_2x100k, base_args, base_params, param_sweeps)
+
+
+@submit.register_sweep
+def sweep_w2v_base_aug(base_args):
+    lrs = [5e-4]
+    aug_probs = [
+        # (True, 1, 0.),  # Source augmentation
+        # (True, 0., 1),  # Target augmentation
+        (True, 1, 1),  # Both augmentation
+    ]
+    augmentations = [
+        # "additive",
+        "speed",
+        # "pitch",
+        # "reverb",
+        # "additive,pitch,speed,reverb",
+        # "additive,speed"
+    ]
+    dos = [0]
+    lds = [
+        # 0.05,
+        0.
+    ]
+    # aug_params = [
+    #     # speed_std, snr_min
+    #     (0.05, 5),
+    #     (0.05, 7),
+    #     (0.05, 10),
+    #     (0.1, 5),
+    #     (0.1, 7),
+    #     (0.1, 10),
+    #     (0.2, 5),
+    #     (0.2, 7),
+    #     (0.2, 10),
+    # ]
+    # aug_params = [
+    #     # pitch_std
+    #     10,
+    #     20,
+    #     40,
+    # ]
+    # aug_params = [
+    #     # snr_min
+    #     5,
+    #     8,
+    #     12,
+    # ]
+    aug_params = [
+        # speed_std
+        # 0.05,
+        # 0.075,
+        # 0.15,
+        0.2,
+        0.25,
+        0.3,
+    ]
+    param_sweeps = [
+        (
+            # f"lr{lr}.sourceaug{saug}.targetaug{taug}.augs{augset}.ld{ld}.spdstd{speed_std}.snrmin{snr_min}",
+            # f"lr{lr}.sourceaug{saug}.targetaug{taug}.augs{augset}.ld{ld}.pitchstd{pitchstd}",
+            # f"lr{lr}.sourceaug{saug}.targetaug{taug}.augs{augset}.ld{ld}.snrmin{snr_min}",
+            f"lr{lr}.sourceaug{saug}.targetaug{taug}.augs{augset}.ld{ld}.spdstd{speed_std}",
+            {
+                "lr": lr,
+                "dropout-input": do,
+                "dropout-features": do,
+                "dropout": do,
+                "encoder-layerdrop": ld,
+
+                "augment-audio": aug,
+                "augmentations": augset,
+                "augment-source-prob": saug,
+                "augment-target-prob": taug,
+
+                "speed-std": speed_std,
+                # "snr-min": snr_min,
+                # "pitch-shift-std": pitchstd
+            },
+        )
+        for augset in augmentations
+        for aug, saug, taug in aug_probs
+        for do in dos
+        for ld in lds
+        for lr in lrs
+        # for speed_std, snr_min in aug_params
+        # for pitchstd in aug_params
+        # for snr_min in aug_params
+        for speed_std in aug_params
     ]
     submit.run_sweeps(w2v_base_2x100k, base_args, base_params, param_sweeps)
 

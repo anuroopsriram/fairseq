@@ -13,6 +13,8 @@ import torch.nn.functional as F
 
 from typing import List, Tuple
 
+from torch.nn import BatchNorm1d
+
 from fairseq.modules.relative_positional_attention import RelativePositionalMultiHeadAttention
 
 from fairseq import utils
@@ -40,6 +42,9 @@ class Lambda(nn.Module):
     def forward(self, x):
         return self.func(x)
 
+    def __repr__(self):
+        return f"Lambda({self.func})"
+
 
 class Permute(nn.Module):
     def __init__(self, *dims):
@@ -48,6 +53,23 @@ class Permute(nn.Module):
 
     def forward(self, x):
         return x.permute(*self.dims)
+
+
+class MaybeBatchNorm(nn.Module):
+    def __init__(self, num_channels, enabled=True):
+        super().__init__()
+        self.bn = None
+        if enabled:
+            self.bn = nn.Sequential(
+                Permute(0, 2, 1),  # (B, T, D) --> (B, D, T)
+                BatchNorm1d(num_channels),
+                Permute(0, 2, 1),  # (B, D, T) --> (B, T, D)
+            )
+
+    def forward(self, x):
+        if self.bn is not None:
+            return self.bn(x)
+        return x
 
 
 @register_model("wav2vec2")
@@ -390,6 +412,17 @@ class Wav2Vec2Model(BaseFairseqModel):
         parser.add_argument(
             "--projection-mlp-context", action="store_true", help="adds projection MLP a la BYOL"
         )
+        parser.add_argument(
+            "--target-mlp-context", action="store_true",
+            help="adds projection MLP a la BYOL to target, before quantization"
+        )
+        parser.add_argument("--mlp-nobn", action="store_true", default=False)
+        parser.add_argument("--mlp-scale", type=int, default=2)
+        parser.add_argument(
+            "--mlp-activation",
+            choices=utils.get_available_activation_fns(),
+            default="relu"
+        )
 
     def __init__(self, args):
         super().__init__()
@@ -471,9 +504,11 @@ class Wav2Vec2Model(BaseFairseqModel):
                 vq_dim=vq_dim,
                 time_first=True,
             )
-            self.project_q = nn.Linear(vq_dim, final_dim)
+            # self.project_q = nn.Linear(vq_dim, final_dim)
+            self.project_q = self._create_project_q(args, vq_dim, final_dim)
         else:
-            self.project_q = nn.Linear(self.embed, final_dim)
+            # self.project_q = nn.Linear(self.embed, final_dim)
+            self.project_q = self._create_project_q(args, self.embed, final_dim)
 
         self.mask_emb = nn.Parameter(
             torch.FloatTensor(args.encoder_embed_dim).uniform_()
@@ -489,16 +524,50 @@ class Wav2Vec2Model(BaseFairseqModel):
             )
 
         if hasattr(args, "projection_mlp_context") and args.projection_mlp_context:
-            self.final_proj = nn.Sequential(
-                nn.Linear(args.encoder_embed_dim, args.encoder_embed_dim * 2),
-                Permute(0, 2, 1),  # (B, T, D) --> (B, D, T)
-                nn.BatchNorm1d(args.encoder_embed_dim * 2),
-                Permute(0, 2, 1),  # (B, D, T) --> (B, T, D)
-                nn.ReLU(),
-                nn.Linear(args.encoder_embed_dim * 2, final_dim)
+            self.final_proj = self._create_mlp(
+                args.encoder_embed_dim,
+                args.encoder_embed_dim * args.mlp_scale,
+                final_dim,
+                not args.mlp_nobn,
+                args.mlp_activation
             )
+            # self.final_proj = nn.Sequential(
+            #     nn.Linear(args.encoder_embed_dim, args.encoder_embed_dim * 2),
+            #     Permute(0, 2, 1),  # (B, T, D) --> (B, D, T)
+            #     nn.BatchNorm1d(args.encoder_embed_dim * 2),
+            #     Permute(0, 2, 1),  # (B, D, T) --> (B, T, D)
+            #     nn.ReLU(),
+            #     nn.Linear(args.encoder_embed_dim * 2, final_dim)
+            # )
         else:
             self.final_proj = nn.Linear(args.encoder_embed_dim, final_dim)
+
+    def _create_mlp(self, in_dim, inner_dim, out_dim, use_bn, act):
+        activation_fn = utils.get_activation_fn(act)
+        return nn.Sequential(
+            nn.Linear(in_dim, inner_dim),
+            MaybeBatchNorm(inner_dim, use_bn),
+            Lambda(activation_fn),
+            nn.Linear(inner_dim, out_dim)
+        )
+
+    def _create_project_q(self, args, in_dim, out_dim):
+        if hasattr(args, "target_mlp_context") and args.target_mlp_context:
+            return self._create_mlp(
+                in_dim, in_dim * args.mlp_scale, out_dim,
+                not args.mlp_nobn,
+                args.mlp_activation
+            )
+            # return nn.Sequential(
+            #     nn.Linear(in_dim, in_dim * 2),
+            #     Permute(0, 2, 1),  # (B, T, D) --> (B, D, T)
+            #     nn.BatchNorm1d(in_dim * 2),
+            #     Permute(0, 2, 1),  # (B, D, T) --> (B, T, D)
+            #     nn.ReLU(),
+            #     nn.Linear(in_dim * 2, out_dim)
+            # )
+        else:
+            return nn.Linear(in_dim, out_dim)
 
     def upgrade_state_dict_named(self, state_dict, name):
         super().upgrade_state_dict_named(state_dict, name)
@@ -628,11 +697,12 @@ class Wav2Vec2Model(BaseFairseqModel):
         return logits
 
     def forward(self, source, padding_mask=None, mask=True, features_only=False, target=None):
-        features, features_pen = self.compute_features(source)
+        features, features_pen = self.compute_features(source, self.feature_grad_mult)
         if target is None:
             unmasked_features = features.clone()
         else:
-            unmasked_features, _ = self.compute_features(target)
+            unmasked_features, features_pen2 = self.compute_features(target, self.feature_grad_mult)
+            features_pen = (features_pen + features_pen2) / 2
 
         if padding_mask is not None:
             extra = padding_mask.size(1) % features.size(1)
@@ -732,11 +802,12 @@ class Wav2Vec2Model(BaseFairseqModel):
 
         return result
 
-    def compute_features(self, source):
-        if self.feature_grad_mult > 0:
+    def compute_features(self, source, feature_grad_mult):
+        # feature_grad_mult = self.feature_grad_mult
+        if feature_grad_mult > 0:
             features = self.feature_extractor(source)
-            if self.feature_grad_mult != 1.0:
-                features = GradMultiply.apply(features, self.feature_grad_mult)
+            if feature_grad_mult != 1.0:
+                features = GradMultiply.apply(features, feature_grad_mult)
         else:
             with torch.no_grad():
                 features = self.feature_extractor(source)

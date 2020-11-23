@@ -69,6 +69,12 @@ def w2v_base_250k(args, params):
     return args, params
 
 
+def w2v_base_4x400k(args, params):
+    args.name = args.name or 'w2v.base.4x400k.ft'
+    args.nodes = 3
+    return args, params
+
+
 def w2v_base_s2s_250k(args, params):
     max_update = 320000
 
@@ -286,6 +292,61 @@ def sup_conformer_relpos_800k(args, params):
 
 
 #### Sweeps
+
+
+@submit.register_sweep
+def sweep_w2v_base_250k_mlp(base_args):
+    lrs = [4e-05]
+    checkpoints = [
+        # Path('logs/w2v.base.250k/lr0.0005.mlpFalse.unlab/'),
+        # Path('logs/w2v.base.250k/lr0.0005.mlpTrue.unlab/'),
+        # Path('logs/w2v.base.250k/lr0.0002.mlpTrue.unlab/'),
+        # Path("logs/w2v.base.250k/lr0.0002.mlpFalse.mlptgtTrue.unlab/"),
+        # Path("logs/w2v.base.250k/lr0.0002.mlpTrue.mlptgtTrue.unlab/"),
+        # Path("logs/w2v.base.250k/lr0.0005.mlpFalse.mlptgtTrue.unlab/"),
+        # Path("logs/w2v.base.250k/lr0.0005.mlpTrue.mlptgtTrue.unlab/"),
+
+        Path("logs/w2v.base.4x400.mlp/lr0.0005.contextmlpTrue.tgtmlpTrue.bnFalse.actrelu.unlab"),
+        Path("logs/w2v.base.4x400.mlp/lr0.0005.contextmlpTrue.tgtmlpTrue.bnFalse.actswish.unlab"),
+        Path("logs/w2v.base.4x400.mlp/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actgelu.unlab"),
+        Path("logs/w2v.base.4x400.mlp/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.unlab"),
+    ]
+    # mask_lens = [6, 10, 14]
+    # mask_probs = [0.3, 0.5, 0.7]
+    # max_update = 200_000
+
+    param_sweeps = [
+        (
+            # f'ckpt{checkpoint.name}.lr{lr}.ml{ml}.mp{mp}',
+            f'ckpt{checkpoint.name}.lr{lr}',
+            {
+                'w2v-path': checkpoint / 'checkpoint_best.pt',
+                'lr': lr,
+                # 'max-update': max_update,
+                # 'warmup-steps': int(max_update * 0.1),
+                # 'hold-steps': int(max_update * 0.5),
+                # 'decay-steps': int(max_update * 0.4),
+                # 'final-lr-scale': 0.02,
+
+                # 'mask-selection': 'static',
+                # 'mask-other': 0,
+                # 'mask-length': ml,
+                # 'mask-prob': mp,
+                # 'layerdrop': 0.1,
+                # 'mask-channel-selection': 'static',
+                # 'mask-channel-other': 0,
+                # 'mask-channel-length': 64,
+                # 'mask-channel-prob': 0.5,
+            },
+        )
+        # for mp in mask_probs
+        # for ml in mask_lens
+        for lr in lrs
+        for checkpoint in checkpoints
+    ]
+    # submit.run_sweeps(w2v_base_250k, base_args, base_params, param_sweeps, dataset='lab.10h')
+    submit.run_sweeps(w2v_base_4x400k, base_args, base_params, param_sweeps, dataset='lab.10h')
+
 
 @submit.register_sweep
 def sweep_w2v_base_250k(base_args):

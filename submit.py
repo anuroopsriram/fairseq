@@ -15,7 +15,7 @@ def create_parser():
     parser.add_argument('-l', '--logdir', type=Path, default='/checkpoint/anuroops/fairseq/wav2vec')
     parser.add_argument('-m', '--mem', type=int, default=400)
     parser.add_argument('-t', '--timeout', type=int, default=72)
-    parser.add_argument('-p', '--partition', type=str, default='Wav2Vec')
+    parser.add_argument('-p', '--partition', type=str, default='learnfair')
     parser.add_argument('-n', '--nodes', type=int, default=1)
     parser.add_argument('-g', '--gpus', type=int, default=8)
     parser.add_argument('-w', '--workers', type=int, default=9)

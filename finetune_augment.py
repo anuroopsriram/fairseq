@@ -1,3 +1,4 @@
+from copy import deepcopy
 from pathlib import Path
 
 import submit
@@ -64,13 +65,85 @@ base_params = {
 }
 
 
+def w2v_base(args, params):
+    args.nodes = 3
+    return args, params
+
+
 def w2v_base_2x100k(args, params):
     args.name = args.name or 'w2v.base.2x100k.augment.ft'
     args.nodes = 2
     return args, params
 
 
+def w2v_base_4x250k(args, params):
+    args.name = args.name or 'w2v.base.4x250k.augment.ft'
+    args.nodes = 2
+    return args, params
+
+
 #### Sweeps
+
+@submit.register_sweep
+def sweep_w2v_base(base_args):
+    checkpoints = [
+        Path("logs/w2v.base.8x400k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive.ld0.0.snr_min5.unlab"),
+        Path("logs/w2v.base.8x400k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.speed_std0.15.unlab"),
+        Path("logs/w2v.base.8x400k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.0.snr_min5.speed_std0.1.unlab"),
+        Path("logs/w2v.base.8x400k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.0.snr_min8.speed_std0.1.unlab"),
+    ]
+
+    lrs = [
+        1e-05,
+        2e-05,
+    ]
+    mask_lens = [
+        # 1,
+        # 2,
+        3,
+        4,
+        # 6,
+        # 8,
+        # 10,
+    ]
+    mask_probs = [
+        # 0.3,
+        0.5,
+        # 0.7,
+    ]
+    max_update = 80_000
+
+    for checkpoint in checkpoints:
+        args = deepcopy(base_args)
+        args.nodes = 1
+        args.name = "w2v.base.8x400k.augment.ft"
+        param_sweeps = [
+            (
+                f"ckpt{checkpoint.name}.lr{lr}.mlen{mlen}.mprob{mprob}.dodefault",
+                {
+                    "lr": lr,
+                    'mask-length': mlen,
+                    'mask-prob': mprob,
+
+                    "max-update": max_update,
+                    "warmup-steps": int(max_update * 0.25),
+                    "hold-steps": int(max_update * 0.5),
+                    "decay-steps": int(max_update * 0.25),
+                    "w2v-path": checkpoint / "checkpoint_best.pt",
+
+                    # 'layerdrop': 0.1,
+                    # 'final-dropout': 0.1,
+                    # 'dropout': 0.1,
+                    # 'activation-dropout': 0.1,
+                    # 'attention-dropout': 0.1,
+                }
+            )
+            for mlen in mask_lens
+            for mprob in mask_probs
+            for lr in lrs
+        ]
+        submit.run_sweeps(w2v_base, args, base_params, param_sweeps, dataset='lab.10h')
+
 
 
 @submit.register_sweep
@@ -128,18 +201,37 @@ def sweep_w2v_base_2x100k(base_args):
         # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.0.spdstd0.2.snrmin5.unlab"),
         # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.0.spdstd0.2.snrmin7.unlab"),
 
-        # Speed Perturb
-        Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.spdstd0.05.unlab"),
-        Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.spdstd0.075.unlab"),
-        Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.spdstd0.15.unlab"),
-        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.spdstd0.25.unlab"),
-        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.spdstd0.2.unlab"),
-        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.spdstd0.3.unlab"),
+        # # Speed Perturb
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.spdstd0.05.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.spdstd0.075.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.spdstd0.15.unlab"),
+        # # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.spdstd0.25.unlab"),
+        # # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.spdstd0.2.unlab"),
+        # # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.spdstd0.3.unlab"),
+        #
+        # # Augment
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive.ld0.0.snrmin12.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive.ld0.0.snrmin5.unlab"),
+        # Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive.ld0.0.snrmin8.unlab"),
 
-        # Augment
-        Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive.ld0.0.snrmin12.unlab"),
-        Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive.ld0.0.snrmin5.unlab"),
-        Path("logs/w2v.base.2x100k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive.ld0.0.snrmin8.unlab"),
+        # 4x250K runs
+
+        # Additive
+        Path("logs/w2v.base.4x250k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive.ld0.0.snr_min10.unlab"),
+        Path("logs/w2v.base.4x250k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive.ld0.0.snr_min8.unlab"),
+        # Speed
+        Path("logs/w2v.base.4x250k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.speed_std0.15.unlab"),
+        Path("logs/w2v.base.4x250k.augment/lr0.0005.sourceaug1.targetaug1.augsspeed.ld0.0.speed_std0.1.unlab"),
+        # Additive + Speed
+        Path("logs/w2v.base.4x250k.augment/lr0.0005.sourceaug1.targetaug1.augsadditive,speed.ld0.0.snr_min10.speed_std0.1.unlab"),
+        # # Reverb
+        # Path("logs/w2v.base.4x250k.augment/lr0.0005.sourceaug0.5.targetaug0.5.augsreverb.ld0.0.reverb_strength50.reverb_damping50.reverb_room_std10.unlab"),
+        # Path("logs/w2v.base.4x250k.augment/lr0.0005.sourceaug0.5.targetaug0.5.augsreverb.ld0.0.reverb_strength50.reverb_damping50.reverb_room_std20.unlab"),
+        # Path("logs/w2v.base.4x250k.augment/lr0.0005.sourceaug0.5.targetaug0.5.augsreverb.ld0.0.reverb_strength50.reverb_damping50.reverb_room_std30.unlab"),
+        # # Pitch Shift
+        # Path("logs/w2v.base.4x250k.augment/lr0.0005.sourceaug1.targetaug1.augspitch.ld0.0.pitch_shift_std20.unlab"),
+        # Path("logs/w2v.base.4x250k.augment/lr0.0005.sourceaug1.targetaug1.augspitch.ld0.0.pitch_shift_std40.unlab"),
+        # Path("logs/w2v.base.4x250k.augment/lr0.0005.sourceaug1.targetaug1.augspitch.ld0.0.pitch_shift_std80.unlab"),
     ]
     for checkpoint in checkpoints:
         assert (checkpoint / "checkpoint_best.pt").exists(), checkpoint
@@ -156,7 +248,8 @@ def sweep_w2v_base_2x100k(base_args):
         for lr in lrs
         for checkpoint in checkpoints
     ]
-    submit.run_sweeps(w2v_base_2x100k, base_args, base_params, param_sweeps, dataset='lab.10h')
+    # submit.run_sweeps(w2v_base_2x100k, base_args, base_params, param_sweeps, dataset='lab.10h')
+    submit.run_sweeps(w2v_base_4x250k, base_args, base_params, param_sweeps, dataset='lab.10h')
 
 
 if __name__ == '__main__':

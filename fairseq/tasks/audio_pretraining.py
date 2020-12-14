@@ -158,7 +158,21 @@ class AudioPretrainingTask(FairseqTask):
             default=0.1,
             type=float,
         )
-
+        parser.add_argument(
+            "--reverb-strength",
+            default=50,
+            type=float,
+        )
+        parser.add_argument(
+            "--reverb-damping",
+            default=50,
+            type=float,
+        )
+        parser.add_argument(
+            "--reverb-room-std",
+            default=30,
+            type=float,
+        )
         # parser.add_argument(
         #     "--augment-pitch-shift",
         #     default=300.,

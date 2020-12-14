@@ -2,7 +2,7 @@
 #
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
-
+import copy
 import logging
 import math
 import numpy as np
@@ -423,6 +423,16 @@ class Wav2Vec2Model(BaseFairseqModel):
             choices=utils.get_available_activation_fns(),
             default="relu"
         )
+        parser.add_argument(
+            '--apply-encoder-to-target',
+            default=False,
+            action='store_true'
+        )
+        parser.add_argument(
+            '--mask-target',
+            default=False,
+            action='store_true'
+        )
 
     def __init__(self, args):
         super().__init__()
@@ -496,7 +506,7 @@ class Wav2Vec2Model(BaseFairseqModel):
         if args.quantize_targets:
             vq_dim = args.latent_dim if args.latent_dim > 0 else final_dim
             self.quantizer = GumbelVectorQuantizer(
-                dim=self.embed,
+                dim=self.embed if not self.args.apply_encoder_to_target else args.encoder_embed_dim,
                 num_vars=args.latent_vars,
                 temp=eval(args.latent_temp),
                 groups=args.latent_groups,
@@ -696,13 +706,16 @@ class Wav2Vec2Model(BaseFairseqModel):
 
         return logits
 
+    def compute_penalty(self, pen1, pen2):
+        return (pen1 + pen2) / 2
+
     def forward(self, source, padding_mask=None, mask=True, features_only=False, target=None):
-        features, features_pen = self.compute_features(source, self.feature_grad_mult)
+        features, features_pen = self.compute_features(source, self.feature_grad_mult, for_target=False)
         if target is None:
             unmasked_features = features.clone()
         else:
-            unmasked_features, features_pen2 = self.compute_features(target, self.feature_grad_mult)
-            features_pen = (features_pen + features_pen2) / 2
+            unmasked_features, features_pen2 = self.compute_features(target, self.feature_grad_mult, for_target=True)
+            features_pen = self.compute_penalty(features_pen, features_pen2)
 
         if padding_mask is not None:
             extra = padding_mask.size(1) % features.size(1)
@@ -713,6 +726,8 @@ class Wav2Vec2Model(BaseFairseqModel):
 
         if self.post_extract_proj is not None:
             features = self.post_extract_proj(features)
+            if self.args.apply_encoder_to_target:
+                unmasked_features = self.post_extract_proj(unmasked_features)
 
         features = self.dropout_input(features)
         unmasked_features = self.dropout_features(unmasked_features)
@@ -746,6 +761,9 @@ class Wav2Vec2Model(BaseFairseqModel):
 
         if features_only:
             return {"x": x, "padding_mask": padding_mask}
+
+        if self.args.apply_encoder_to_target:
+            y = self.apply_encoder_to_target(padding_mask, y)
 
         if self.quantizer:
             q = self.quantizer(y, produce_targets=False)
@@ -802,7 +820,15 @@ class Wav2Vec2Model(BaseFairseqModel):
 
         return result
 
-    def compute_features(self, source, feature_grad_mult):
+    def apply_encoder_to_target(self, padding_mask, y):
+        with torch.no_grad():
+            if self.args.mask_target:
+                y = self.encoder(y, padding_mask=padding_mask)
+            else:
+                y = self.encoder(y)
+        return y
+
+    def compute_features(self, source, feature_grad_mult, for_target=False):
         # feature_grad_mult = self.feature_grad_mult
         if feature_grad_mult > 0:
             features = self.feature_extractor(source)
@@ -856,6 +882,163 @@ class Wav2Vec2Model(BaseFairseqModel):
         self.project_q = None
         self.target_glu = None
         self.final_proj = None
+
+
+@register_model("siamese_wav2vec2")
+class SiameseWav2VecModel2(Wav2Vec2Model):
+    def __init__(self, args):
+        super().__init__(args)
+
+    def forward(self, source, padding_mask=None, mask=True, features_only=False, target=None):
+        assert target is not None
+
+        source_features, source_features_pen = self.compute_features(source, self.feature_grad_mult, for_target=False)
+        target_features, target_features_pen = self.compute_features(target, self.feature_grad_mult, for_target=True)
+        features_pen = self.compute_penalty(source_features_pen, target_features_pen)
+
+        if padding_mask is not None:
+            extra = padding_mask.size(1) % source_features.size(1)
+            if extra > 0:
+                padding_mask = padding_mask[:, :-extra]
+            padding_mask = padding_mask.view(padding_mask.size(0), source_features.size(1), -1)
+            padding_mask = padding_mask.all(-1)
+
+        if self.post_extract_proj is not None:
+            source_features = self.post_extract_proj(source_features)
+
+        source_features = self.dropout_input(source_features)
+        target_features = self.dropout_features(target_features)
+
+        if mask:
+            x, mask_indices = self.apply_mask(source_features, padding_mask)
+            if mask_indices is not None:
+                y = target_features[mask_indices].view(target_features.size(0), -1, target_features.size(-1))
+            else:
+                y = target_features
+        else:
+            x = source_features
+            y = target_features
+            mask_indices = None
+
+        # x = self.encoder(x, padding_mask=padding_mask)
+        x = self.apply_encoder(x, padding_mask)
+
+        if features_only:
+            return {"x": x, "padding_mask": padding_mask}
+
+        y = self.apply_encoder(y, padding_mask)
+
+        if self.quantizer:
+            raise NotImplementedError
+            # q = self.quantizer(y, produce_targets=False)
+            # y = q["x"]
+            # num_vars = q["num_vars"]
+            # code_ppl = q["code_perplexity"]
+            # prob_ppl = q["prob_perplexity"]
+            # curr_temp = q["temp"]
+            #
+            # y = self.project_q(y)
+            #
+            # if self.negatives_from_everywhere:
+            #     neg_cands, *_ = self.quantizer(unmasked_features, produce_targets=False)
+            #     negs, _ = self.sample_negatives(neg_cands, y.size(1))
+            #     negs = self.project_q(negs)
+            #
+            # else:
+            #     negs, _ = self.sample_negatives(y, y.size(1))
+            #
+            # if self.codebook_negatives > 0:
+            #     cb_negs = self.quantizer.sample_from_codebook(
+            #         y.size(0) * y.size(1), self.codebook_negatives
+            #     )
+            #     cb_negs = cb_negs.view(
+            #         self.codebook_negatives, y.size(0), y.size(1), -1
+            #     )  # order doesnt matter
+            #     cb_negs = self.project_q(cb_negs)
+            #     negs = torch.cat([negs, cb_negs], dim=0)
+        else:
+            y = self.project_q(y)
+
+            if self.negatives_from_everywhere:
+                negs, _ = self.sample_negatives(y, y.size(1))
+                negs = self.project_q(negs)
+            else:
+                negs, _ = self.sample_negatives(y, y.size(1))
+
+        x = x[mask_indices].view(x.size(0), -1, x.size(-1))
+
+        if self.target_glu:
+            y = self.target_glu(y)
+            negs = self.target_glu(negs)
+
+        x = self.final_proj(x)
+        x = self.compute_preds(x, y, negs)
+
+        result = {"x": x, "padding_mask": padding_mask, "features_pen": features_pen}
+
+        # if prob_ppl is not None:
+        #     result["prob_perplexity"] = prob_ppl
+        #     result["code_perplexity"] = code_ppl
+        #     result["num_vars"] = num_vars
+        #     result["temp"] = curr_temp
+
+        return result
+
+
+@register_model("wav2vec2_tracking")
+class Wav2Vec2TrackingModel(Wav2Vec2Model):
+    """
+    Has a BYOL style tracking feature extractor on the target side
+    """
+
+    @staticmethod
+    def add_args(parser):
+        """Add model-specific arguments to the parser."""
+        Wav2Vec2Model.add_args(parser)
+
+        parser.add_argument(
+            "--tracking-tau", default=0.99, type=float
+        )
+
+    def __init__(self, args):
+        super().__init__(args)
+
+        self.tracking_feature_extractor = copy.deepcopy(self.feature_extractor)
+        self.tracking_layer_norm = copy.deepcopy(self.layer_norm)
+        self.tracking_tau = args.tracking_tau
+        self.tracking_encoder = copy.deepcopy(self.encoder)
+
+    def apply_encoder_to_target(self, padding_mask, y):
+        with torch.no_grad():
+            if self.args.mask_target:
+                y = self.tracking_encoder(y, padding_mask=padding_mask)
+            else:
+                y = self.tracking_encoder(y)
+        self.update_tracking(self.encoder, self.tracking_encoder)
+        return y
+
+    def compute_features(self, source, feature_grad_mult, for_target=False):
+        if not for_target:
+            return super(Wav2Vec2TrackingModel, self).compute_features(source, feature_grad_mult, for_target)
+        else:
+            with torch.no_grad():
+                features = self.tracking_feature_extractor(source)
+            features_pen = 0
+            features = features.transpose(1, 2)
+            features = self.tracking_layer_norm(features)
+            self.update_tracking(self.feature_extractor, self.tracking_feature_extractor)
+            self.update_tracking(self.layer_norm, self.tracking_layer_norm)
+            return features, features_pen
+
+    def update_tracking(self, module1: nn.Module, module2: nn.Module):
+        with torch.no_grad():
+            for name, param1 in module1.named_parameters():
+                param2 = getattr(module2, name)
+                param2 = param1 * self.tracking_tau + param2 * (1 - self.tracking_tau)
+                setattr(module2, name, param2)
+
+    def compute_penalty(self, pen1, pen2):
+        return pen1
 
 
 class ConvFeatureExtractionModel(nn.Module):
@@ -1364,3 +1547,9 @@ def base_architecture(args):
     args.target_glu = getattr(args, "target_glu", False)
 
     args.conv_bias = getattr(args, "conv_bias", False)
+
+
+@register_model_architecture("wav2vec2_tracking", "wav2vec2_tracking")
+def base_architecture_tracking(args):
+    base_architecture(args)
+    args.tracking_tau = getattr(args, "tracking_tau", 0.99)

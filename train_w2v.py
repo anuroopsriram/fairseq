@@ -53,6 +53,14 @@ base_params = {
 }
 
 
+def w2v_base_2x100k(args, params):
+    args.name = args.name or 'w2v.base.100k'
+    args.nodes = 2
+    params['total-num-update'] = 100000
+    params['max-update'] = 100000
+    return args, params
+
+
 def w2v_base_250k(args, params):
     args.name = args.name or 'w2v.base.250k'
     args.nodes = 4
@@ -68,6 +76,17 @@ def w2v_base_4x400k(args, params):
     args.nodes = 4
     params['total-num-update'] = 400000
     params['max-update'] = 400000
+    return args, params
+
+
+def w2v_tracking_4x400k(args, params):
+    args.name = args.name or 'w2v.tracking.4x400'
+    args.nodes = 4
+    params.update({
+        "arch": "wav2vec2_tracking",
+        "max-update": 400000,
+        "total-num-update": 400000,
+    })
     return args, params
 
 
@@ -325,21 +344,28 @@ def w2v_base_8x400k(args, params):
 
 #### Sweeps
 
+
 @submit.register_sweep
-def sweep_w2v_base_mlp(base_args):
-    lrs = [5e-4]
+def sweep_siamese_v1(base_args):
+    lrs = [
+        5e-4
+    ]
+    apply_encoder_to_targets = [
+        True,
+        # False,
+    ]
+    mask_targets = [
+        True,
+        False,
+    ]
     mlp_params = {
         # (mlpContext, mlpTarget, BatchNorm, Scale, Activation)
-
-        # (True, True, True, 2, "relu"),
-        (True, True, True, 2, "gelu"),
-        (True, True, False, 2, "swish"),
+        (False, False, False, 1, "relu"),
         (True, True, True, 4, "relu"),
-        (True, True, False, 2, "relu"),
     }
     param_sweeps = [
         (
-            f"lr{lr}.contextmlp{contextMLP}.tgtmlp{targetMLP}.bn{batchnorm}.act{activation}",
+            f"lr{lr}.contextmlp{contextMLP}.tgtmlp{targetMLP}.bn{batchnorm}.act{activation}.scale{scale}.tgtenc{tgtenc}.tgtmsk{tgtmsk}",
             {
                 "lr": lr,
                 "projection-mlp-context": contextMLP,
@@ -347,12 +373,88 @@ def sweep_w2v_base_mlp(base_args):
                 "mlp-nobn": not batchnorm,
                 "mlp-scale": scale,
                 "mlp-activation": activation,
+
+                "apply-encoder-to-target": tgtenc,
+                "mask-target": tgtmsk,
+            },
+        )
+        for contextMLP, targetMLP, batchnorm, scale, activation in mlp_params
+        for lr in lrs
+        for tgtenc in apply_encoder_to_targets
+        for tgtmsk in mask_targets
+    ]
+    # base_args.name = base_args.name or 'w2v.base.4x400.mlp'
+
+    base_args.name = base_args.name or 'w2v.base.2x100.siamese'
+    submit.run_sweeps(w2v_base_2x100k, base_args, base_params, param_sweeps)
+
+
+@submit.register_sweep
+def sweep_w2v_tracking_mlp(base_args):
+    lrs = [5e-4]
+    mlp_params = {
+        # (mlpContext, mlpTarget)
+        (True, True),
+    }
+    taus = [
+        # 0.95,
+        # 0.99,
+        0.995,
+    ]
+    param_sweeps = [
+        (
+            f"lr{lr}.contextmlp{contextMLP}.tgtmlp{targetMLP}.tau{tau}",
+            {
+                "lr": lr,
+                "projection-mlp-context": contextMLP,
+                "target-mlp-context": targetMLP,
+                "tracking-tau": tau,
+
+                "update-freq": 2,
+            },
+        )
+        for contextMLP, targetMLP in mlp_params
+        for lr in lrs
+        for tau in taus
+    ]
+    # base_args.name = base_args.name or 'w2v.tracking.4x400.mlp'
+
+    base_args.name = base_args.name or 'w2v.tracking.8x400.mlp'
+    submit.run_sweeps(w2v_tracking_4x400k, base_args, base_params, param_sweeps)
+
+
+@submit.register_sweep
+def sweep_w2v_base_mlp(base_args):
+    lrs = [5e-4]
+    mlp_params = {
+        # (mlpContext, mlpTarget, BatchNorm, Scale, Activation)
+
+        # (True, True, True, 2, "relu"),
+        # (True, True, True, 2, "gelu"),
+        # (True, True, False, 2, "swish"),
+        (True, True, True, 4, "relu"),
+        # (True, True, False, 2, "relu"),
+    }
+    param_sweeps = [
+        (
+            f"lr{lr}.contextmlp{contextMLP}.tgtmlp{targetMLP}.bn{batchnorm}.act{activation}.scale{scale}",
+            {
+                "lr": lr,
+                "projection-mlp-context": contextMLP,
+                "target-mlp-context": targetMLP,
+                "mlp-nobn": not batchnorm,
+                "mlp-scale": scale,
+                "mlp-activation": activation,
+
+                "update-freq": 2,
             },
         )
         for contextMLP, targetMLP, batchnorm, scale, activation in mlp_params
         for lr in lrs
     ]
-    base_args.name = base_args.name or 'w2v.base.4x400.mlp'
+    # base_args.name = base_args.name or 'w2v.base.4x400.mlp'
+
+    base_args.name = base_args.name or 'w2v.base.8x400.mlp'
     submit.run_sweeps(w2v_base_4x400k, base_args, base_params, param_sweeps)
 
 

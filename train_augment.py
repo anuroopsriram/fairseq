@@ -247,6 +247,99 @@ def sweep_w2v_base_aug4(base_args):
 
 
 @submit.register_sweep
+def sweep_w2v_base_8x400K_aug(base_args):
+    aug_params = [
+        # (Aug, SourceAug, TargetAug, Augs, AugParams)
+        (True, 1, 1, "speed", [("speed-std", 0.15)]),
+        (True, 1, 1, "additive", [("snr-min", 5)]),
+        (True, 1, 1, "additive,speed", [("snr-min", 8), ("speed-std", 0.1)]),
+        (True, 1, 1, "additive,speed", [("snr-min", 5), ("speed-std", 0.1)]),
+    ]
+    lrs = [5e-4]
+    dos = [0]
+    lds = [0.]
+    param_sweeps = [
+        (
+            f"lr{lr}.sourceaug{srcAug}.targetaug{tgtAug}.augs{augSet}.ld{ld}." + ".".join([f"{k.replace('-', '_')}{v}" for k, v in augParams]),
+            {
+                "lr": lr,
+                "dropout-input": do,
+                "dropout-features": do,
+                "dropout": do,
+                "encoder-layerdrop": ld,
+
+                "augment-audio": aug,
+                "augment-source-prob": srcAug,
+                "augment-target-prob": tgtAug,
+                "augmentations": augSet,
+                **dict(augParams),
+
+                "total-num-update": 400000,
+                "max-update": 400000,
+                "update-freq": 2,
+            }
+        )
+        for aug, srcAug, tgtAug, augSet, augParams in aug_params
+        for do in dos
+        for lr in lrs
+        for ld in lds
+    ]
+
+    base_args.name = base_args.name or 'w2v.base.8x400k.augment'
+    base_args.nodes = 4
+
+    submit.run_sweeps(w2v_base_4x250k, base_args, base_params, param_sweeps)
+
+
+@submit.register_sweep
+def sweep_w2v_base_4x250K_aug(base_args):
+    aug_params = [
+        # (Aug, SourceAug, TargetAug, Augs, AugParams)
+        # (True, 1, 1, "speed", [("speed-std", 0.1)]),
+        # (True, 1, 1, "speed", [("speed-std", 0.15)]),
+        # (True, 1, 1, "additive", [("snr-min", 8)]),
+        # (True, 1, 1, "additive", [("snr-min", 10)]),
+        # (True, 1, 1, "additive,speed", [("snr-min", 10), ("speed-std", 0.1)]),
+
+        (True, 1, 1, "pitch", [("pitch-shift-std", 20)]),
+        (True, 1, 1, "pitch", [("pitch-shift-std", 40)]),
+        (True, 1, 1, "pitch", [("pitch-shift-std", 80)]),
+
+        (True, 0.5, 0.5, "reverb", [("reverb-strength", 50), ("reverb-damping", 50), ("reverb-room-std", 10)]),
+        (True, 0.5, 0.5, "reverb", [("reverb-strength", 50), ("reverb-damping", 50), ("reverb-room-std", 20)]),
+        (True, 0.5, 0.5, "reverb", [("reverb-strength", 50), ("reverb-damping", 50), ("reverb-room-std", 30)]),
+    ]
+    lrs = [5e-4]
+    dos = [0]
+    lds = [0.]
+    param_sweeps = [
+        (
+            f"lr{lr}.sourceaug{srcAug}.targetaug{tgtAug}.augs{augSet}.ld{ld}." + ".".join([f"{k.replace('-', '_')}{v}" for k, v in augParams]),
+            {
+                "lr": lr,
+                "dropout-input": do,
+                "dropout-features": do,
+                "dropout": do,
+                "encoder-layerdrop": ld,
+
+                "augment-audio": aug,
+                "augment-source-prob": srcAug,
+                "augment-target-prob": tgtAug,
+                "augmentations": augSet,
+                **dict(augParams),
+            }
+        )
+        for aug, srcAug, tgtAug, augSet, augParams in aug_params
+        for do in dos
+        for lr in lrs
+        for ld in lds
+    ]
+    # for ps in param_sweeps:
+    #     print(ps)
+    submit.run_sweeps(w2v_base_4x250k, base_args, base_params, param_sweeps)
+
+
+@submit.register_sweep
 def sweep_w2v_base_aug(base_args):
     lrs = [5e-4]
     aug_probs = [
@@ -297,8 +390,8 @@ def sweep_w2v_base_aug(base_args):
         # 0.075,
         # 0.15,
         0.2,
-        0.25,
-        0.3,
+        # 0.25,
+        # 0.3,
     ]
     param_sweeps = [
         (

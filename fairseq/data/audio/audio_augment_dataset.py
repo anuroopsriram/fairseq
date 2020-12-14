@@ -66,7 +66,8 @@ class AudioAugmentDataset(BaseWrapperDataset):
             elif aug == "speed":
                 effect_chain = effect_chain.speed(self.random_speed)
             elif aug == "reverb":
-                effect_chain = effect_chain.reverb(50, 50, self.random_room_size).channels()
+                effect_chain = effect_chain.reverb(self.args.reverb_strength, self.args.reverb_damping,
+                                                   self.random_room_size).channels()
             elif aug == "additive":
                 pass
             else:
@@ -80,7 +81,8 @@ class AudioAugmentDataset(BaseWrapperDataset):
         return 1. + np.random.randn() * self.args.speed_std
 
     def random_room_size(self):
-        return np.random.randint(0, 100)
+        # return np.random.randint(0, 100)
+        return min(np.abs(np.random.randn() * self.args.reverb_room_std), 100.)
 
     def random_noise(self, numframes):
         import soundfile as sf

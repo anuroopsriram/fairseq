@@ -55,7 +55,7 @@ output units",
     parser.add_argument(
         "--w2l-decoder",
         choices=["viterbi", "kenlm", "fairseqlm"],
-        help="use a w2l decoder",
+        help="use a w2l decoder"
     )
     parser.add_argument("--lexicon", help="lexicon for w2l decoder")
     parser.add_argument("--unit-lm", action="store_true", help="if using a unit lm")

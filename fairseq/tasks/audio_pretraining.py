@@ -87,6 +87,10 @@ class AudioPretrainingConfig(FairseqDataclass):
             "adds 'prev_output_tokens' to input and appends eos to target"
         },
     )
+    target_dict: Optional[str] = field(
+        default=None,
+        metadata={"help": "Path to target dictionary"}
+    )
 
 
 @register_task("audio_pretraining", dataclass=AudioPretrainingConfig)
@@ -117,7 +121,11 @@ class AudioPretrainingTask(FairseqTask):
         """
 
         if cfg.labels:
-            dict_path = os.path.join(cfg.data, f"dict.{cfg.labels}.txt")
+            if cfg.target_dict is None:
+                dict_path = os.path.join(cfg.data, f"dict.{cfg.labels}.txt")
+            else:
+                dict_path = os.path.join(cfg.target_dict, f"dict.{cfg.labels}.txt")
+            print("\t******* dict_path", dict_path)
             target_dictionary = Dictionary.load(dict_path)
         else:
             target_dictionary = None

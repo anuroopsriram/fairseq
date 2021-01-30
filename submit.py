@@ -110,13 +110,13 @@ def main(args, base_params, data_dir, task):
         run_local(cmd, args)
 
 
-def run_sweeps(func, base_args, base_params, sweeps, dataset='unlab',
+def run_sweeps(base_args, base_params, sweeps, dataset='unlab',
                task='train', check_names=True):
     if check_names:
         names = [name for name, _ in sweeps]
         assert len(set(names)) == len(names), f'Names not unique: {names}'
 
-    base_args, base_params = func(base_args, base_params)
+    # base_args, base_params = func(base_args, base_params)
     for name, overrides in sweeps:
         args = deepcopy(base_args)
         if dataset:

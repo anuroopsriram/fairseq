@@ -47,26 +47,42 @@ class ChainRunner:
 
 
 class AudioAugmentDataset(BaseWrapperDataset):
-    def __init__(self, dataset, args, normalize, split):
+    def __init__(
+            self, dataset, normalize, split, augmentations,
+            reverb_strength, reverb_damping, reverb_room_std, 
+            pitch_shift_std, speed_std, snr_min, snr_max,
+            augment_source_prob, augment_target_prob
+    ):
+
         print("AUGMENT DATASET")
         super().__init__(dataset)
         # assert args.augment_source_prob > 0 or args.augment_target_prob > 0, \
         #     "Atleast one of source and target needs to be augmented"
         self.normalize = normalize
-        self.args = args
         self.split = split
+        self.augmentations = augmentations
+        self.reverb_strength = reverb_strength
+        self.reverb_damping = reverb_damping
+        self.reverb_room_std = reverb_room_std
+        self.pitch_shift_std = pitch_shift_std
+        self.speed_std = speed_std
+        self.snr_min = snr_min
+        self.snr_max = snr_max
+        self.augment_source_prob = augment_source_prob
+        self.augment_target_prob = augment_target_prob
+
         self.noise_root = Path("/checkpoint/anuroops/data/musan")
         self.noise_files = list(self.noise_root.rglob("*.wav"))
 
         effect_chain = augment.EffectChain().rate("-q", 16_000)
-        augmentations = self.args.augmentations.split(",")
+        augmentations = augmentations.split(",")
         for aug in sorted(augmentations):
             if aug == "pitch":
                 effect_chain = effect_chain.pitch("-q", self.random_pitch_shift)
             elif aug == "speed":
                 effect_chain = effect_chain.speed(self.random_speed)
             elif aug == "reverb":
-                effect_chain = effect_chain.reverb(self.args.reverb_strength, self.args.reverb_damping,
+                effect_chain = effect_chain.reverb(reverb_strength, reverb_damping,
                                                    self.random_room_size).channels()
             elif aug == "additive":
                 pass
@@ -75,14 +91,14 @@ class AudioAugmentDataset(BaseWrapperDataset):
         self.runner = ChainRunner(effect_chain)
 
     def random_pitch_shift(self):
-        return np.random.randn() * self.args.pitch_shift_std
+        return np.random.randn() * self.pitch_shift_std
 
     def random_speed(self):
-        return 1. + np.random.randn() * self.args.speed_std
+        return 1. + np.random.randn() * self.speed_std
 
     def random_room_size(self):
         # return np.random.randint(0, 100)
-        return min(np.abs(np.random.randn() * self.args.reverb_room_std), 100.)
+        return min(np.abs(np.random.randn() * self.reverb_room_std), 100.)
 
     def random_noise(self, numframes):
         import soundfile as sf
@@ -109,9 +125,9 @@ class AudioAugmentDataset(BaseWrapperDataset):
         def _maybe_aug(feats, prob):
             if self.split == "train" and np.random.random() < prob:
                 aug = self.runner(feats)
-                if "additive" in self.args.augmentations:
+                if "additive" in self.augmentations:
                     noise_generator = self.random_noise(feats.shape[0])
-                    snr = np.random.random() * (self.args.snr_max - self.args.snr_min) + self.args.snr_min
+                    snr = np.random.random() * (self.snr_max - self.snr_min) + self.snr_min
                     aug = augment.EffectChain().additive_noise(noise_generator, snr=snr) \
                         .apply(aug, src_info={'rate': 16000}, target_info={'rate': 16000})
             else:
@@ -121,8 +137,8 @@ class AudioAugmentDataset(BaseWrapperDataset):
         item = self.dataset[index]
         source = item["source"]
         item["original_source"] = source
-        item["source"] = _maybe_aug(source.clone(), self.args.augment_source_prob)
-        item["target"] = _maybe_aug(source.clone(), self.args.augment_target_prob)
+        item["source"] = _maybe_aug(source.clone(), self.augment_source_prob)
+        item["target"] = _maybe_aug(source.clone(), self.augment_target_prob)
         return item
 
 

@@ -27,10 +27,52 @@ from fairseq.modules import (
 )
 from fairseq.modules.transformer_sentence_encoder import init_bert_params
 from fairseq.utils import buffered_arange
+from torch.nn import BatchNorm1d
 
 
 EXTRACTOR_MODE_CHOICES = ChoiceEnum(["default", "layer_norm"])
 MASKING_DISTRIBUTION_CHOICES = ChoiceEnum(["static", "uniform", "normal", "poisson"])
+
+
+class Lambda(nn.Module):
+    def __init__(self, func):
+        super().__init__()
+        self.func = func
+
+    def forward(self, x):
+        return self.func(x)
+
+    def __repr__(self):
+        return f"Lambda({self.func})"
+
+
+class Permute(nn.Module):
+    def __init__(self, *dims):
+        super().__init__()
+        self.dims = dims
+
+    def forward(self, x):
+        return x.permute(*self.dims)
+
+    def __repr__(self):
+        return f"Permute({self.dims})"
+
+
+class MaybeBatchNorm(nn.Module):
+    def __init__(self, num_channels, enabled=True):
+        super().__init__()
+        self.bn = None
+        if enabled:
+            self.bn = nn.Sequential(
+                Permute(0, 2, 1),  # (B, T, D) --> (B, D, T)
+                BatchNorm1d(num_channels),
+                Permute(0, 2, 1),  # (B, D, T) --> (B, T, D)
+            )
+
+    def forward(self, x):
+        if self.bn is not None:
+            return self.bn(x)
+        return x
 
 
 @dataclass
@@ -217,6 +259,12 @@ class Wav2Vec2Config(FairseqDataclass):
             "can be tuple of 3 values (start, end, decay)"
         },
     )
+    # MLP
+    projection_mlp_context: bool = field(default=False)
+    target_mlp_context: bool = field(default=False)
+    mlp_scale: int = field(default=2)
+    mlp_batch_norm: bool = field(default=False)
+    mlp_activation: ChoiceEnum(utils.get_available_activation_fns()) = field(default="relu")
 
 
 @register_model("wav2vec2", dataclass=Wav2Vec2Config)
@@ -283,9 +331,11 @@ class Wav2Vec2Model(BaseFairseqModel):
                 vq_dim=vq_dim,
                 time_first=True,
             )
-            self.project_q = nn.Linear(vq_dim, final_dim)
+            # self.project_q = nn.Linear(vq_dim, final_dim)
+            self.project_q = self._create_project_q(cfg, vq_dim, final_dim)
         else:
-            self.project_q = nn.Linear(self.embed, final_dim)
+            # self.project_q = nn.Linear(self.embed, final_dim)
+            self.project_q = self._create_project_q(cfg, self.embed, final_dim)
 
         if cfg.quantize_input:
             if cfg.same_quantizer and self.quantizer is not None:
@@ -317,7 +367,31 @@ class Wav2Vec2Model(BaseFairseqModel):
                 nn.Linear(final_dim, final_dim * 2), nn.GLU()
             )
 
-        self.final_proj = nn.Linear(cfg.encoder_embed_dim, final_dim)
+        if cfg.projection_mlp_context:
+            self.final_proj = self._create_mlp(
+                cfg.encoder_embed_dim, cfg.encoder_embed_dim * cfg.mlp_scale, final_dim,
+                not cfg.mlp_batch_norm, cfg.mlp_activation
+            )
+        else:
+            self.final_proj = nn.Linear(cfg.encoder_embed_dim, final_dim)
+
+    def _create_mlp(self, in_dim, inner_dim, out_dim, batch_norm, act):
+        activation_fn = utils.get_activation_fn(act)
+        return nn.Sequential(
+            nn.Linear(in_dim, inner_dim),
+            MaybeBatchNorm(inner_dim, batch_norm),
+            Lambda(activation_fn),
+            nn.Linear(inner_dim, out_dim)
+        )
+
+    def _create_project_q(self, cfg, in_dim, out_dim):
+        if cfg.target_mlp_context:
+            return self._create_mlp(
+                in_dim, in_dim * cfg.mlp_scale, out_dim, cfg.mlp_batch_norm,
+                cfg.mlp_activation
+            )
+        else:
+            return nn.Linear(in_dim, out_dim)
 
     def upgrade_state_dict_named(self, state_dict, name):
         super().upgrade_state_dict_named(state_dict, name)
@@ -443,21 +517,15 @@ class Wav2Vec2Model(BaseFairseqModel):
 
         return logits
 
-    def forward(self, source, padding_mask=None, mask=True, features_only=False):
+    def forward(self, source, padding_mask=None, mask=True, features_only=False, target=None):
 
-        if self.feature_grad_mult > 0:
-            features = self.feature_extractor(source)
-            if self.feature_grad_mult != 1.0:
-                features = GradMultiply.apply(features, self.feature_grad_mult)
+        features, features_pen = self.compute_features(source, self.feature_grad_mult)
+        if target is None:
+            unmasked_features = features.clone()
         else:
-            with torch.no_grad():
-                features = self.feature_extractor(source)
-
-        features_pen = features.float().pow(2).mean()
-
-        features = features.transpose(1, 2)
-        features = self.layer_norm(features)
-        unmasked_features = features.clone()
+            unmasked_features, features_pen_target = self.compute_features(
+                target, self.feature_grad_mult)
+            features_pen = (features_pen + features_pen_target) / 2
 
         if padding_mask is not None:
             extra = padding_mask.size(1) % features.size(1)
@@ -558,6 +626,19 @@ class Wav2Vec2Model(BaseFairseqModel):
             result["temp"] = curr_temp
 
         return result
+
+    def compute_features(self, source, feature_grad_mult):
+        if feature_grad_mult > 0:
+            features = self.feature_extractor(source)
+            if feature_grad_mult != 1.0:
+                features = GradMultiply.apply(features, feature_grad_mult)
+        else:
+            with torch.no_grad():
+                features = self.feature_extractor(source)
+        features_pen = features.float().pow(2).mean()
+        features = features.transpose(1, 2)
+        features = self.layer_norm(features)
+        return features,features_pen
 
     def quantize(self, x):
         assert self.quantizer is not None

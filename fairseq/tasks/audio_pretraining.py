@@ -5,6 +5,7 @@
 # the root directory of this source tree. An additional grant of patent rights
 # can be found in the PATENTS file in the same directory.
 
+from fairseq.data.audio.audio_augment_dataset import AudioAugmentDataset
 import os
 import sys
 import torch
@@ -87,6 +88,17 @@ class AudioPretrainingConfig(FairseqDataclass):
             "adds 'prev_output_tokens' to input and appends eos to target"
         },
     )
+    audio_augment: bool = field(default=False)
+    augment_source_prob: float = field(default=1.)
+    augment_target_prob: float = field(default=1.)
+    augmentations: str = field(default="additive,pitch,speed,reverb")
+    snr_min: float = field(default=8)
+    snr_max: float = field(default=15)
+    pitch_shift_std: float = field(default=100)
+    speed_std: float = field(default=0.1)
+    reverb_strength: float = field(default=50)
+    reverb_damping: float = field(default=50)
+    reverb_room_std: float = field(default=30)
 
 
 @register_task("audio_pretraining", dataclass=AudioPretrainingConfig)
@@ -167,6 +179,13 @@ class AudioPretrainingTask(FairseqTask):
                 batch_targets=True,
                 process_label=process_label,
                 add_to_input=task_cfg.autoregressive,
+            )
+        if task_cfg.audio_augment:
+            self.datasets[split] = AudioAugmentDataset(
+                self.datasets[split], task_cfg.normalize, split, task_cfg.augmentations,
+                task_cfg.reverb_strength, task_cfg.reverb_damping, task_cfg.reverb_room_std, 
+                task_cfg.pitch_shift_std, task_cfg.speed_std, task_cfg.snr_min, task_cfg.snr_max,
+                task_cfg.augment_source_prob, task_cfg.augment_target_prob
             )
 
     @property

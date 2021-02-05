@@ -8,6 +8,7 @@ import contextlib
 import copy
 import math
 import numpy as np
+from omegaconf.dictconfig import DictConfig
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

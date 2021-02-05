@@ -83,10 +83,12 @@ def main(args, base_params, data_dir, task):
         cmd = build_command(args, base_params, data_dir)
     elif task == 'infer':
         cmd = build_infer_command(args, base_params, data_dir)
+    else:
+        raise ValueError("Unknown task")
     print(' '.join(cmd))
 
     if args.submit:
-        executor = submitit.AutoExecutor(folder=args.logdir / f'{args.name}')
+        executor = submitit.AutoExecutor(folder=args.logdir / args.name)
         executor.update_parameters(
             name=args.name,
             mem_gb=args.mem,
@@ -111,7 +113,7 @@ def main(args, base_params, data_dir, task):
 
 
 def run_sweeps(base_args, base_params, sweeps, dataset='unlab',
-               task='train', check_names=True):
+               task='train', check_names=True, skip_if_cp_exists=False):
     if check_names:
         names = [name for name, _ in sweeps]
         assert len(set(names)) == len(names), f'Names not unique: {names}'
@@ -128,7 +130,16 @@ def run_sweeps(base_args, base_params, sweeps, dataset='unlab',
         params = deepcopy(base_params)
         params.update(**overrides)
         print(args.name, overrides)
+
+        print(args.logdir / args.name / "checkpoint_last.pt")
+        if skip_if_cp_exists and (args.logdir / args.name / "checkpoint_last.pt").exists():
+            print("Checkpoint exists. Skipping run \n")
+            continue
+
         main(args, params, dataset, task)
+        print()
+        if not args.submit:
+            break
 
 
 sweep_funcs = {}

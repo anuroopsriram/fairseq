@@ -88,7 +88,8 @@ class AudioPretrainingConfig(FairseqDataclass):
             "adds 'prev_output_tokens' to input and appends eos to target"
         },
     )
-    audio_augment: bool = field(default=False)
+    audio_augment: bool = field(default=False)  # TODO: Remove
+    augment_audio: bool = field(default=False)
     augment_source_prob: float = field(default=1.)
     augment_target_prob: float = field(default=1.)
     augmentations: str = field(default="additive,pitch,speed,reverb")
@@ -153,7 +154,7 @@ class AudioPretrainingTask(FairseqTask):
             min_sample_size=self.cfg.max_sample_size,
             min_length=self.cfg.min_sample_size,
             pad=task_cfg.labels is not None or task_cfg.enable_padding,
-            normalize=task_cfg.normalize,
+            normalize=(task_cfg.normalize and not task_cfg.augment_audio),
         )
 
         if task_cfg.labels:
@@ -180,7 +181,7 @@ class AudioPretrainingTask(FairseqTask):
                 process_label=process_label,
                 add_to_input=task_cfg.autoregressive,
             )
-        if task_cfg.audio_augment:
+        if task_cfg.augment_audio:
             self.datasets[split] = AudioAugmentDataset(
                 self.datasets[split], task_cfg.normalize, split, task_cfg.augmentations,
                 task_cfg.reverb_strength, task_cfg.reverb_damping, task_cfg.reverb_room_std, 

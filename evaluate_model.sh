@@ -1,19 +1,27 @@
 #!/usr/bin/env bash
 
 
-MODEL_200K="logs/w2v_steps_ted.ls.fsh.swbd/w2v_steps_ted.ls.fsh.swbd.s1337.mxsz250000.mnsz32000.maxtok1400000.MU200k.ufreq2.layer_norm.ngpu32/w2v_steps_ted.ls.fsh.swbd_ft/w2v_steps_ted.ls.fsh.swbd_ft.norm.lr2e-05.u25000.wstep5000.hstep7500.dstep12500.lrfs0_05.ufreq1.maxtok3200000.ffu0.fgm0_0.ml10.mp0_5.mcstatic.mcl64.mco0.mcp0_5.drpl0_1.sd1337.ngpu16"
+# MODEL_800K="logs/w2v_steps_ted.ls.fsh.swbd/w2v_steps_ted.ls.fsh.swbd.s1337.mxsz250000.mnsz32000.maxtok1400000.MU800k.ufreq2.layer_norm.ngpu32/w2v_steps_ted.ls.fsh.swbd_ft/w2v_steps_ted.ls.fsh.swbd_ft.norm.lr5e-05.u25000.wstep5000.hstep7500.dstep12500.lrfs0_05.ufreq1.maxtok3200000.ffu0.fgm0_0.ml10.mp0_5.mcstatic.mcl64.mco0.mcp0_5.drpl0_1.sd1337.ngpu16"
+# MODEL_800K="logs/w2v_steps_ted/w2v_steps_ted.s1337.mxsz250000.mnsz32000.maxtok1400000.MU800k.ufreq2.layer_norm.ngpu32/w2v_steps_ted_ft/w2v_steps_ted_ft.norm.lr2e-05.u25000.wstep5000.hstep7500.dstep12500.lrfs0_05.ufreq1.maxtok3200000.ffu0.fgm0_0.ml10.mp0_5.mcstatic.mcl64.mco0.mcp0_5.drpl0_1.sd1337.ngpu16/"
 
 
-# python evaluate_model.py viterbi $MODEL_200K --data ted10  # --dictdata ted10
-# python evaluate_model.py viterbi $MODEL_200K --data ls10 --dictdata ted10
+MODEL_ALL_200K="logs/w2v_steps_ted.ls.fsh.swbd/w2v_steps_ted.ls.fsh.swbd.s1337.mxsz250000.mnsz32000.maxtok1400000.MU200k.ufreq2.layer_norm.ngpu32/w2v_steps_ted.ls.fsh.swbd_ft/w2v_steps_ted.ls.fsh.swbd_ft.norm.lr2e-05.u25000.wstep5000.hstep7500.dstep12500.lrfs0_05.ufreq1.maxtok3200000.ffu0.fgm0_0.ml3.mp0_25.mcstatic.mcl64.mco0.mcp0_5.drpl0_1.sd1337.ngpu16"
+MODEL_ALL_400K="logs/w2v_steps_ted.ls.fsh.swbd/w2v_steps_ted.ls.fsh.swbd.s1337.mxsz250000.mnsz32000.maxtok1400000.MU400k.ufreq2.layer_norm.ngpu32/w2v_steps_ted.ls.fsh.swbd_ft/w2v_steps_ted.ls.fsh.swbd_ft.norm.lr2e-05.u25000.wstep5000.hstep7500.dstep12500.lrfs0_05.ufreq1.maxtok3200000.ffu0.fgm0_0.ml3.mp0_25.mcstatic.mcl64.mco0.mcp0_5.drpl0_1.sd1337.ngpu16"
+MODEL_ALL_800K="logs/w2v_steps_ted.ls.fsh.swbd/w2v_steps_ted.ls.fsh.swbd.s1337.mxsz250000.mnsz32000.maxtok1400000.MU800k.ufreq2.layer_norm.ngpu32/w2v_steps_ted.ls.fsh.swbd_ft/w2v_steps_ted.ls.fsh.swbd_ft.norm.lr2e-05.u25000.wstep5000.hstep7500.dstep12500.lrfs0_05.ufreq1.maxtok3200000.ffu0.fgm0_0.ml3.mp0_25.mcstatic.mcl64.mco0.mcp0_5.drpl0_1.sd1337.ngpu16"
 
 
-python examples/speech_recognition/infer.py data/ted_lower/ted.10h \
---task audio_pretraining \
---nbest 1 --path ${MODEL_200K}/checkpoint_last.pt \
---gen-subset dev --results-path RES --w2l-decoder viterbi \
---criterion ctc --labels ltr --max-tokens 4000000 \
---post-process letter
+# python evaluate_model.py viterbi $MODEL_ALL_800K --data ted10  #--dictdata ted10
+# python evaluate_model.py viterbi $MODEL_ALL_800K --data ls10  #--dictdata ted10
+python evaluate_model.py viterbi $MODEL_ALL_200K --data ls10  #--dictdata ted10
+python evaluate_model.py viterbi $MODEL_ALL_400K --data ls10  #--dictdata ted10
+
+
+# python examples/speech_recognition/infer.py data/ted_lower/ted.10h \
+# --task audio_pretraining \
+# --nbest 1 --path ${MODEL_800K}/checkpoint_best.pt \
+# --gen-subset dev --results-path RES --w2l-decoder viterbi \
+# --criterion ctc --labels ltr --max-tokens 4000000 \
+# --post-process letter --lm-weight 0 --word-score 0 
 
 
 

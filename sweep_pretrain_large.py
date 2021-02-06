@@ -31,12 +31,12 @@ def get_grid(args):
 
         # task
         hp('--task', 'audio_pretraining'),
-        hp('--max-sample-size', 250000, save_dir_key=lambda val: f'mxsz{val}'),
+        hp('--max-sample-size', 320000, save_dir_key=lambda val: f'mxsz{val}'),
         hp('--min-sample-size', 32000, save_dir_key=lambda val: f'mnsz{val}'),
 
         # dataset
         hp('--num-workers', 6),
-        hp('--max-tokens', 700000 if args.local else 1400000, save_dir_key=lambda val: f'maxtok{val}'),
+        hp('--max-tokens', 700000 if args.local else 1200000, save_dir_key=lambda val: f'maxtok{val}'),
         hp('--skip-invalid-size-inputs-valid-test', True, binary_flag=True),
         hp('--validate-interval-updates', 100 if args.local else 10000),
         hp('--validate-interval', 5),
@@ -47,21 +47,16 @@ def get_grid(args):
         hp('--criterion', 'wav2vec'),
         hp('--infonce', True, binary_flag=True),
         hp('--log-keys', '["prob_perplexity", "code_perplexity", "temp"]'),
-        hp('--loss-weights', '[0.1, 10]'),
+        hp('--loss-weights', '[0.1, 0]'),
 
         # optimization
         hp('--max-update', [
-            # 200000,
-            # 400000,
-            # 800000,
-            1200000,
+            800_000,
+            1_600_000,
         ], save_dir_key=lambda val: f'MU{val//1000}k'),
         hp('--update-freq', [args.update_freq], save_dir_key=lambda val: f'ufreq{val}'),
-        # hp('--lr', 0.0005),
-        # hp('--lr', 0.0002),
-        hp('--lr', 0.00005),
-        # hp('--clip-norm', [25.0]),
-        hp('--clip-norm', [10.0]),
+        hp('--lr', 0.005),
+        hp('--clip-norm', [25.0]),
 
         # optimizer
         hp('--optimizer', 'adam'),
@@ -75,14 +70,21 @@ def get_grid(args):
         # model
         hp('--arch', 'wav2vec2'),
         hp('--quantize-targets', True, binary_flag=True),
-        hp('--final-dim', 256),
-        hp("--encoder-layerdrop", [0.05,]),
-        hp('--dropout', [0.1,]),
-        hp('--dropout-input', [0.1]),
-        hp('--dropout-features', [0.1]),
-        hp('--attention-dropout', [0.1]),
-        hp('--feature-grad-mult', [0.1]),
+        hp('--final-dim', 768),
+        hp("--encoder-layerdrop", [0.,]),
+        hp("--latent-temp", '[2.0,0.1,0.999995]'),
+        hp('--dropout', [0.,]),
+        hp('--dropout-input', [0.]),
+        hp('--dropout-features', [0.]),
+        hp('--attention-dropout', [0.]),
+        hp('--feature-grad-mult', [1.]),
         hp('--extractor-mode', ['layer_norm'], save_dir_key=lambda v: v),
+        hp('--layer-norm-first', True, binary_flag=True),
+        hp('--conv-bias', True, binary_flag=True),
+        hp("--encoder-layers", 24),
+        hp("--encoder-embed-dim", 1024),
+        hp("--encoder-ffn-embed-dim", 4096),
+        hp("--encoder-attention-heads", 16),
     ]
 
 
@@ -95,7 +97,7 @@ def postprocess_hyperparams(args, config):
 
     key = '--warmup-updates'
     config[key] = hp(key, [])
-    config[key].current_value = int(max_update * 0.08)
+    config[key].current_value = int(max_update * 0.032)
 
     extractor_mode = config.get("--extractor-mode", None)
     if extractor_mode is not None:

@@ -55,7 +55,7 @@ def get_args():
     parser.add_argument('--time', default='4320',
                         help='expected job duration in minutes')
     parser.add_argument('--constraint', metavar='CONSTRAINT',
-                        help='gpu constraint, if any. e.g. "volta"')
+                        help='gpu constraint, if any. e.g. "volta"', default="volta32gb")
     parser.add_argument('--one-task', action='store_true',
                         help='if true, starts one task per node instead of num gpus')
     parser.add_argument('--comment', help='comment string', default="RobustWav2Vec")

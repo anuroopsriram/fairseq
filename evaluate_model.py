@@ -47,10 +47,11 @@ def viterbi(args):
     #     dictpath = (Path("data") / config.LAB_DATASETS[args.dictdata]["val"]).parent
     # else:
     #     raise ValueError()
+    dictpath = "data"
 
     cmd = (
         f"python -u examples/speech_recognition/infer.py {data} --gen-subset {split} --labels ltr "  # --lexicon {lexicon} "
-        # f"--target-dict {dictpath} "
+        f"--target-dict {dictpath} "
         f"--path {args.model}/checkpoint_best.pt --results-path {args.model}/infer/{split} "
         f"--beam 1 --beam-size-token 100 --beam-threshold 100 --criterion ctc --lm-weight 0 --word-score 0 "
         f"--max-tokens 1000000 --nbest 1 --normalize --num-shards 1 --remove-bpe letter --post-process letter "

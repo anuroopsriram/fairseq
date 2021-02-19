@@ -672,7 +672,7 @@ class LightConvEncoderLayer(nn.Module):
         self.fc2 = Linear(args.encoder_ffn_embed_dim, self.embed_dim)
         self.layer_norms = nn.ModuleList([LayerNorm(self.embed_dim) for _ in range(2)])
 
-    def forward(self, x, encoder_padding_mask):
+    def forward(self, x, encoder_padding_mask=None):
         """
         Args:
             x (Tensor): input to the layer of shape `(seq_len, batch, embed_dim)`
@@ -698,7 +698,7 @@ class LightConvEncoderLayer(nn.Module):
 
         residual = x
         x = self.maybe_layer_norm(1, x, before=True)
-        x = F.relu(self.fc1(x))
+        x = F.gelu(self.fc1(x))
         x = self.relu_dropout_module(x)
         x = self.fc2(x)
         x = self.dropout_module(x)
@@ -858,7 +858,7 @@ class LightConvDecoderLayer(nn.Module):
 
         residual = x
         x = self.maybe_layer_norm(self.final_layer_norm, x, before=True)
-        x = F.relu(self.fc1(x))
+        x = F.gelu(self.fc1(x))
         x = self.relu_dropout_module(x)
         x = self.fc2(x)
         x = self.dropout_module(x)

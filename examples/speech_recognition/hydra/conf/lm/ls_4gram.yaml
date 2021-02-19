@@ -1,0 +1,8 @@
+# @package _global_
+
+decoding:
+  decoder:
+    # lexicon: /checkpoint/wav2letter/transfer_learning/aws/icassp_paper/lms/ls200k.lexicon
+    # lmpath: /checkpoint/wav2letter/transfer_learning/aws/icassp_paper/lms/lm_librispeech_kenlm_word_4g_200kvocab.bin
+    lexicon: /checkpoint/anuroops/data/libris/lab.960h/lexicon_ltr.lst
+    lmpath: /checkpoint/abaevski/data/speech/libri/4-gram.bin

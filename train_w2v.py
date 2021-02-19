@@ -80,6 +80,78 @@ def w2v_base(base_args):
 
 
 @submit.register_sweep
+def w2v_base_conformer(base_args):
+    lrs = [5e-4]
+    run_args_list = [
+        dict(name="w2v.base.conf.2x100", updates=100_000, nodes=2, update_freq=1),
+    ]
+    num_layers = 17
+    trans_types = {
+        "conf": ",".join(["conf" for _ in range(num_layers)]),
+        "conf_rp": ",".join(["conf_relpos" for _ in range(num_layers)]),
+    }
+    kern_sizes = [3]
+    for run_args in run_args_list:
+        param_sweeps = [
+            (
+                f"lr{lr}.trans{trans}",
+                {
+                    "lr": lr,
+                    "encoder-layers": num_layers,
+                    "transformer-type": trans_type,
+                    "conformer-kernel-size": kern_sz,
+                    'encoder-embed-dim': 512,
+                    'encoder-attention-heads': 8,
+
+                    "total-num-update": run_args["updates"],
+                    "max-update": run_args["updates"],
+                    "update-freq": run_args["update_freq"],
+                },
+            )
+            for lr in lrs
+            for kern_sz in kern_sizes
+            for trans, trans_type in trans_types.items()
+        ]
+        args = deepcopy(base_args)
+        args.name = args.name or run_args["name"]
+        args.nodes = run_args["nodes"]
+        submit.run_sweeps(args, base_params, param_sweeps)
+
+
+@submit.register_sweep
+def w2v_base_lightconv(base_args):
+    lrs = [5e-4]
+    run_args_list = [
+        dict(name="w2v.base.lc.2x100", updates=100_000, nodes=2, update_freq=1),
+    ]
+    conv_types = {
+        # "conv": "conv", 
+        "lc": "light_conv",
+        "dc": "dynamic_conv",
+    }
+    for run_args in run_args_list:
+        param_sweeps = [
+            (
+                f"lr{lr}.conv{conv_name}",
+                {
+                    "lr": lr,
+                    "conv-type": conv_type,
+                    "total-num-update": run_args["updates"],
+                    "max-update": run_args["updates"],
+                    "update-freq": run_args["update_freq"],
+                    'conv-feature-layers': [(32, 10, 5)] + [(32, 3, 2)] * 4 + [(32, 2, 2)] * 2,
+                },
+            )
+            for lr in lrs
+            for conv_name, conv_type in conv_types.items()
+        ]
+        args = deepcopy(base_args)
+        args.name = args.name or run_args["name"]
+        args.nodes = run_args["nodes"]
+        submit.run_sweeps(args, base_params, param_sweeps)
+
+
+@submit.register_sweep
 def w2v_base_mlp(base_args):
     lrs = [5e-4]
     mlp_params = {
@@ -186,11 +258,13 @@ def w2v_base_augment(base_args):
 @submit.register_sweep
 def w2v_base_mlp_augment(base_args):
     lrs = [5e-4]
+    # lrs = [2e-4]
     mlp_params = {
         # (mlpContext, mlpTarget, BatchNorm, Scale, Activation)
         # (False, False, False, 1, "relu"),
-        (False, True, True, 4, "relu"),
-        (True, False, True, 4, "relu"),
+
+        # (False, True, True, 4, "relu"),
+        # (True, False, True, 4, "relu"),
         (True, True, True, 4, "relu"),
     }
     
@@ -221,27 +295,31 @@ def w2v_base_mlp_augment(base_args):
         # (True, "speed", 1., 1., {"speed-std": 0.15}),
         (True, "additive,speed", 1., 1., {"snr-min": 8, "snr-max": 15, "speed-std": 0.1}),
         (True, "additive,speed", 1., 1., {"snr-min": 8, "snr-max": 15, "speed-std": 0.15}),
+        # (True, "additive,speed", 1., 1., {"snr-min": 6, "snr-max": 15, "speed-std": 0.15}),
+        # (True, "additive,speed", 1., 1., {"snr-min": 8, "snr-max": 15, "speed-std": 0.20}),
+        # (True, "additive,speed", 1., 1., {"snr-min": 10, "snr-max": 15, "speed-std": 0.1}),
 
         # (True, "pitch", 1., 1., {"pitch-shift-std": 10}),
         # (True, "pitch", 1., 1., {"pitch-shift-std": 50}),
         # (True, "pitch", 1., 1., {"pitch-shift-std": 100}),
     ]
     run_args_list = [
-        dict(name="w2v.base.mlp.augment.2x100", updates=100_000, nodes=2),
+        # dict(name="w2v.base.mlp.augment.2x100", updates=100_000, nodes=2),
         # dict(name="w2v.base.mlp.augment.4x400", updates=400_000, nodes=4),
         # dict(name="w2v.base.mlp.augment.8x400", updates=400_000, nodes=4, update_freq=2),
+        dict(name="w2v.base.mlp.augment.8x400", updates=400_000, nodes=8, update_freq=1),
     ]
     drop_params = [
         # (dropout, layerdrop)
         (0., 0.),
         (0.05, 0.025),
-        (0.1, 0.05),
+        # (0.1, 0.05),
     ]
     for run_args in run_args_list:
         param_sweeps = [
             (
                 (
-                    f"lr{lr}.contextmlp{contextMLP}.tgtmlp{targetMLP}.bn{batchnorm}.act{activation}.scale{scale}.do{do}.ld{ld}" +
+                    f"lr{lr}.contextmlp{contextMLP}.tgtmlp{targetMLP}.bn{batchnorm}.act{activation}.scale{scale}.do{do}.ld{ld}.normFalse" +
                     f"augSrc{augSrcProb}.augTgt{augTgtProb}.augs{augmentations}." +
                     "_".join(f"{key}{val}" for key, val in augParams.items())
                 ),
@@ -255,13 +333,14 @@ def w2v_base_mlp_augment(base_args):
 
                     "total-num-update": run_args["updates"],
                     "max-update": run_args["updates"],
-                    "update-freq": 1,
+                    "update-freq": run_args["update_freq"],
 
                     "augment-audio": augment,
                     "augmentations": augmentations,
                     'augment-source-prob': augSrcProb,
                     'augment-target-prob': augTgtProb,
-                    "normalize": True,
+                    # "normalize": True,
+                    "normalize": False,
 
                     "dropout-input": do,
                     "dropout-features": do,
@@ -275,6 +354,88 @@ def w2v_base_mlp_augment(base_args):
             for augment, augmentations, augSrcProb, augTgtProb, augParams in augment_params
             for lr in lrs
             for do, ld in drop_params
+        ]
+        args = deepcopy(base_args)
+        args.name = args.name or run_args["name"]
+        args.nodes = run_args["nodes"]
+        submit.run_sweeps(args, base_params, param_sweeps)
+
+
+# 5058,5112,5134,5143,5211,5227,5246-5247
+
+
+@submit.register_sweep
+def w2v_base_conformer_mlp_augment(base_args):
+    lrs = [5e-4]
+    run_args_list = [
+        # dict(name="w2v.base.conf.2x100", updates=100_000, nodes=2, update_freq=1),
+        dict(name="w2v.base.conf.8x400", updates=400_000, nodes=8, update_freq=1),
+    ]
+    num_layers = 17
+    trans_types = {
+        # "conf": ",".join(["conf" for _ in range(num_layers)]),
+        "conf_rp": ",".join(["conf_relpos" for _ in range(num_layers)]),
+    }
+    mlp_params = [
+        # (mlpContext, mlpTarget, BatchNorm, Scale, Activation)
+        (False, True, True, 4, "relu"),
+        # (True, True, True, 4, "relu"),
+    ]
+    augment_params = [
+        # (augment, augmentations, augSrcProb, augTgtProb, augParams)
+        # (False, "speed", 1., 1., {"speed-std": 0.}),
+        (True, "additive,speed", 1., 1., {"snr-min": 8, "snr-max": 15, "speed-std": 0.1}),
+        # (True, "additive,speed", 1., 1., {"snr-min": 8, "snr-max": 15, "speed-std": 0.15}),
+    ]
+    drop_params = [
+        # (dropout, layerdrop)
+        (0., 0.),
+    ]
+    kern_sizes = [3]
+    for run_args in run_args_list:
+        param_sweeps = [
+            (
+                (
+                    f"lr{lr}.trans{trans}.ksz{kern_sz}.cmlp{contextMLP}.tmlp{targetMLP}.bn{batchnorm}.act{activation}.scale{scale}.do{do}.ld{ld}" +
+                    f"augSrc{augSrcProb}.augTgt{augTgtProb}" + 
+                    (".augs{augmentations}." + "_".join(f"{key}{val}" for key, val in augParams.items()) if augmentations else "")
+                ),
+                {
+                    "lr": lr,
+                    "encoder-layers": num_layers,
+                    "transformer-type": trans_type,
+                    "conformer-kernel-size": kern_sz,
+                    'encoder-embed-dim': 512,
+                    'encoder-attention-heads': 8,
+
+                    "projection-mlp-context": contextMLP,
+                    "target-mlp-context": targetMLP,
+                    "mlp-batch-norm": batchnorm,
+                    "mlp-scale": scale,
+                    "mlp-activation": activation,
+
+                    "augment-audio": augment,
+                    "augmentations": augmentations,
+                    'augment-source-prob': augSrcProb,
+                    'augment-target-prob': augTgtProb,
+                    "normalize": True,
+
+                    "dropout-input": do,
+                    "dropout-features": do,
+                    "dropout": do,
+                    "encoder-layerdrop": ld,
+
+                    "total-num-update": run_args["updates"],
+                    "max-update": run_args["updates"],
+                    "update-freq": run_args["update_freq"],
+                },
+            )
+            for contextMLP, targetMLP, batchnorm, scale, activation in mlp_params
+            for augment, augmentations, augSrcProb, augTgtProb, augParams in augment_params
+            for lr in lrs
+            for do, ld in drop_params
+            for kern_sz in kern_sizes
+            for trans, trans_type in trans_types.items()
         ]
         args = deepcopy(base_args)
         args.name = args.name or run_args["name"]

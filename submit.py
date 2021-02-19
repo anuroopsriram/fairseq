@@ -19,6 +19,7 @@ def create_parser():
     parser.add_argument('-n', '--nodes', type=int, default=1)
     parser.add_argument('-g', '--gpus', type=int, default=8)
     parser.add_argument('-w', '--workers', type=int, default=9)
+    parser.add_argument('-c', '--comment', type=str, default="ICML deadline (02/05)")
     parser.add_argument('--port', type=int, default=13349)
     parser.add_argument('--submit', action='store_true', default=False)
     parser.add_argument('--shards', type=int, default=1)
@@ -100,6 +101,7 @@ def main(args, base_params, data_dir, task):
             # tasks_per_node=1,
             tasks_per_node=args.gpus,
             slurm_constraint='volta32gb' if not args.no32gb else '',
+            slurm_comment=args.comment
         )
         if args.shards > 1:
             cmds = [[] + cmd + [f'--shard-id {i}'] for i in range(args.shards)]

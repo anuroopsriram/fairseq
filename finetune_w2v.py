@@ -58,11 +58,13 @@ base_params = {
     'attention-dropout': 0.0,
     'max-tokens': 1280000,
     'seed': 2337,
-    'log-format': 'json',
+    # 'log-format': 'json',
     'log-interval': 500,
     'ddp-backend': 'no_c10d',
     'validate-interval-updates': 500,
-    'save-interval-updates': 500,
+    'validate-interval': 10000,
+    # 'save-interval-updates': 500,
+    'no-epoch-checkpoints': True,
 }
 
 
@@ -74,7 +76,7 @@ def w2v_base_mlp(base_args):
         ],
         "w2v.base.mlp.4x400.tmp": [
             # "logs/w2v.base.mlp.4x400/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.unlab",
-            "logs/w2v.base.4x400.mlp/lr0.0005.contextmlpTrue.tgtmlpTrue.bnFalse.actrelu.unlab",
+            # "logs/w2v.base.4x400.mlp/lr0.0005.contextmlpTrue.tgtmlpTrue.bnFalse.actrelu.unlab",
         ],
         "w2v.base.mlp.2x100.ft": [
             # "logs/w2v.base.mlp.2x100/lr0.0005.contextmlpFalse.tgtmlpFalse.bnFalse.actrelu.scale1.unlab",
@@ -83,22 +85,51 @@ def w2v_base_mlp(base_args):
             # "logs/w2v.base.mlp.2x100/lr0.0005.contextmlpFalse.tgtmlpTrue.bnFalse.actrelu.scale4.unlab",
         ],
         "w2v.base.mlp.augment.2x100.ft": [
-            # contextmlpTrue.tgtmlpTrue augSrc1.0.augTgt0.0
-            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale2.do0.0.ld0.0augSrc1.0.augTgt0.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.1.unlab",
-            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale2.do0.0.ld0.0augSrc1.0.augTgt0.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.15.unlab",
-            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale2.do0.0.ld0.0augSrc1.0.augTgt0.0.augsadditive.snr-min10_snr-max15.unlab",
-            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale2.do0.0.ld0.0augSrc1.0.augTgt0.0.augsadditive.snr-min8_snr-max15.unlab",
-            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale2.do0.0.ld0.0augSrc1.0.augTgt0.0.augsspeed.speed-std0.05.unlab",
-            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale2.do0.0.ld0.0augSrc1.0.augTgt0.0.augsspeed.speed-std0.1.unlab",
-            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale2.do0.0.ld0.0augSrc1.0.augTgt0.0.augsspeed.speed-std0.15.unlab",
-            # # contextmlpTrue.tgtmlpTrue augSrc0.0.augTgt1.0
-            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale2.do0.0.ld0.0augSrc0.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.1.unlab",
-            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale2.do0.0.ld0.0augSrc0.0.augTgt1.0.augsadditive.snr-min10_snr-max15.unlab",
-            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale2.do0.0.ld0.0augSrc0.0.augTgt1.0.augsadditive.snr-min8_snr-max15.unlab",
-            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale2.do0.0.ld0.0augSrc0.0.augTgt1.0.augsspeed.speed-std0.05.unlab",
-            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale2.do0.0.ld0.0augSrc0.0.augTgt1.0.augsspeed.speed-std0.1.unlab",
-            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale2.do0.0.ld0.0augSrc0.0.augTgt1.0.augsspeed.speed-std0.15.unlab",
+            # # contextmlpFalse.tgtmlpTrue
+            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpFalse.tgtmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.1.unlab",
+            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpFalse.tgtmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.15.unlab",
+            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpFalse.tgtmlpTrue.bnTrue.actrelu.scale4.do0.05.ld0.025augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.1.unlab",
+            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpFalse.tgtmlpTrue.bnTrue.actrelu.scale4.do0.05.ld0.025augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.15.unlab",
+            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpFalse.tgtmlpTrue.bnTrue.actrelu.scale4.do0.1.ld0.05augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.1.unlab",
+            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpFalse.tgtmlpTrue.bnTrue.actrelu.scale4.do0.1.ld0.05augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.15.unlab",
+            # # contextmlpTrue.tgtmlpTrue
+            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpFalse.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.1.unlab",
+            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpFalse.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.15.unlab",
+            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpFalse.bnTrue.actrelu.scale4.do0.05.ld0.025augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.1.unlab",
+            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpFalse.bnTrue.actrelu.scale4.do0.05.ld0.025augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.15.unlab",
+            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpFalse.bnTrue.actrelu.scale4.do0.1.ld0.05augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.15.unlab",
+            # # contextmlpTrue.tgtmlpTrue
+            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.1.unlab",
+            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.15.unlab",
+            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.05.ld0.025augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.1.unlab",
+            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.05.ld0.025augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.15.unlab",
+            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.1.ld0.05augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.1.unlab",
+            # "logs/w2v.base.mlp.augment.2x100/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.1.ld0.05augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.15.unlab",
         ],
+        "w2v.base.mlp.augment.8x400.ft.3x80k": [
+            # "logs/w2v.base.mlp.augment.8x400/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.15.unlab",
+            # "logs/w2v.base.mlp.augment.8x400/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.05.ld0.025augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.15.unlab",
+            # "logs/w2v.base.mlp.augment.8x400/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.05.ld0.025augSrc1.0.augTgt1.0.augsadditive,speed.snr-min6_snr-max15_speed-std0.15.unlab",
+        ],
+        "w2v.base.conf.2x100.ft": [
+            # No MLP or Aug
+            "logs/w2v.base.conf.2x100/lr0.0005.transconf.unlab",
+            "logs/w2v.base.conf.2x100/lr0.0005.transconf_rp.unlab",
+            # # No Aug
+            # "logs/w2v.base.conf.2x100/lr0.0005.transconf.ksz3.cmlpFalse.tmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augs{augmentations}.speed-std0.0.unlab",
+            # "logs/w2v.base.conf.2x100/lr0.0005.transconf.ksz3.cmlpTrue.tmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augs{augmentations}.speed-std0.0.unlab",
+            # "logs/w2v.base.conf.2x100/lr0.0005.transconf_rp.ksz3.cmlpFalse.tmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augs{augmentations}.speed-std0.0.unlab",
+            # "logs/w2v.base.conf.2x100/lr0.0005.transconf_rp.ksz3.cmlpTrue.tmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augs{augmentations}.speed-std0.0.unlab",
+            # # MLP + Aug
+            # "logs/w2v.base.conf.2x100/lr0.0005.transconf.ksz3.cmlpFalse.tmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augs{augmentations}.snr-min8_snr-max15_speed-std0.1.unlab",
+            # "logs/w2v.base.conf.2x100/lr0.0005.transconf.ksz3.cmlpFalse.tmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augs{augmentations}.snr-min8_snr-max15_speed-std0.15.unlab",
+            # "logs/w2v.base.conf.2x100/lr0.0005.transconf.ksz3.cmlpTrue.tmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augs{augmentations}.snr-min8_snr-max15_speed-std0.1.unlab",
+            # "logs/w2v.base.conf.2x100/lr0.0005.transconf.ksz3.cmlpTrue.tmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augs{augmentations}.snr-min8_snr-max15_speed-std0.15.unlab",
+            # "logs/w2v.base.conf.2x100/lr0.0005.transconf_rp.ksz3.cmlpFalse.tmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augs{augmentations}.snr-min8_snr-max15_speed-std0.1.unlab",
+            # "logs/w2v.base.conf.2x100/lr0.0005.transconf_rp.ksz3.cmlpFalse.tmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augs{augmentations}.snr-min8_snr-max15_speed-std0.15.unlab",
+            # "logs/w2v.base.conf.2x100/lr0.0005.transconf_rp.ksz3.cmlpTrue.tmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augs{augmentations}.snr-min8_snr-max15_speed-std0.1.unlab",
+            # "logs/w2v.base.conf.2x100/lr0.0005.transconf_rp.ksz3.cmlpTrue.tmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augs{augmentations}.snr-min8_snr-max15_speed-std0.15.unlab",
+        ]
     }
 
     # name = "w2v.base.mlp.2x100.ft"
@@ -109,25 +140,39 @@ def w2v_base_mlp(base_args):
     #     "logs/w2v.base.mlp.2x100/lr0.0005.contextmlpTrue.tgtmlpFalse.bnFalse.actrelu.scale4.unlab",
     #     "logs/w2v.base.mlp.2x100/lr0.0005.contextmlpFalse.tgtmlpTrue.bnFalse.actrelu.scale4.unlab",
     # }
-    # lrs = [2e-05, 5e-05]
-    # mask_lens = [3, 6, 10, 14]
-    mask_probs = [0.5]
     max_update = 25_000
-
+    # max_update = 80_000
+    # lrs = [1e-05, 2e-05, 4e-05]
     lrs = [2e-05]
+    # lrs = [1e-05, 4e-05]
     # mask_lens = [4, 10]
+    # mask_probs = [0.5]
+
+    # mask_lens = [4, 6, 10, 14]
+    # mask_probs = [0.25, 0.5, 0.75]
+    # dos = [0.1, 0.2]
+
+    # mask_lens = [8, 10]
+    # mask_probs = [0.15, 0.25, 0.4]
+    # dos = [0.1, 0.2]
+
+    # lrs = [1e-05]
+    # mask_lens = [3, 4, 5, 7, 10]
     mask_lens = [10]
+    mask_probs = [0.5]
+    dos = [0.1]
 
     for name, checkpoints_list in checkpoints.items():
         for checkpoint in checkpoints_list:
             args = deepcopy(base_args)
-            args.nodes = 2
+            # args.nodes = 2
+            args.nodes = 3
             args.name = args.name or name
             checkpoint = Path(checkpoint)
 
             param_sweeps = [
                 (
-                    f"ckpt{checkpoint.name}.lr{lr}.mlen{mlen}.mprob{mprob}.do0.1",
+                    f"ckpt{checkpoint.name}.lr{lr}.mlen{mlen}.mprob{mprob}.do{do}",
                     {
                         "lr": lr,
                         'mask-length': mlen,
@@ -140,15 +185,16 @@ def w2v_base_mlp(base_args):
                         "w2v-path": checkpoint / "checkpoint_best.pt",
 
                         "augment-audio": False,
-                        'layerdrop': 0.1,
-                        'final-dropout': 0.1,
-                        'dropout': 0.1,
-                        'activation-dropout': 0.1,
-                        'attention-dropout': 0.1,
+                        'layerdrop': do,
+                        'final-dropout': do,
+                        'dropout': do,
+                        'activation-dropout': do,
+                        'attention-dropout': do,
 
                         # "normalize": True,
                     }
                 )
+                for do in dos
                 for mlen in mask_lens
                 for mprob in mask_probs
                 for lr in lrs

@@ -49,9 +49,12 @@ class SiameseWav2vecCriterion(FairseqCriterion):
 
         losses = []
         cosine_sim = (F.cosine_similarity(x1, y2) + F.cosine_similarity(y1, x2)) / 2.
-        
-        # x1_norm = x1 / torch.norm(x1, p=2, dim=0, keepdim=True)
-        # y1_norm = y1 / torch.norm(y1, p=2, dim=0, keepdim=True)
+
+        # Output stats for monitoring
+        x1_norm = x1 / torch.norm(x1, p=2, dim=0, keepdim=True)
+        y1_norm = y1 / torch.norm(y1, p=2, dim=0, keepdim=True)
+        # print(x1.shape, x1_norm.shape, torch.norm(x1, p=2, dim=1, keepdim=True).shape)
+        stdev = (torch.std(x1_norm) + torch.std(y1_norm)) * math.sqrt(x1.size(1)) / 2
         # print(
         #     "CosSim:", cosine_sim.mean().item(),
         #     "StdX:", torch.std(x1_norm.squeeze()).item() * math.sqrt(x1.size(1)),
@@ -84,6 +87,7 @@ class SiameseWav2vecCriterion(FairseqCriterion):
             "ntokens": sample_size,
             "nsentences": sample["id"].numel(),
             "sample_size": sample_size,
+            "stdev": stdev,
         }
         for lk in self.log_keys:
             if lk in net_output:

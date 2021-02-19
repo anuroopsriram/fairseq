@@ -9,7 +9,6 @@ import math
 from dataclasses import dataclass, field
 from typing import List, Tuple
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -18,17 +17,10 @@ from fairseq.data.data_utils import compute_mask_indices
 from fairseq.dataclass import ChoiceEnum, FairseqDataclass
 from fairseq.models import BaseFairseqModel, register_model
 from fairseq.modules import (
-    Fp32GroupNorm,
-    Fp32LayerNorm,
     GradMultiply,
     GumbelVectorQuantizer,
     LayerNorm,
-    MultiheadAttention,
-    SamePad,
-    TransposeLast,
 )
-from fairseq.modules.transformer_sentence_encoder import init_bert_params
-from fairseq.utils import buffered_arange
 
 
 class Permute(nn.Module):
@@ -510,6 +502,22 @@ class SiameseWav2Vec2Model(BaseFairseqModel):
         self.prediction_mlp = None
 
 
-@register_model("nce_siamese_wav2vec2", dataclass=SiameseWav2Vec2Config)
-class NceSiameseWav2Vec2Model(SiameseWav2Vec2Model):
+# @register_model("nce_siamese_wav2vec2", dataclass=SiameseWav2Vec2Config)
+# class NceSiameseWav2Vec2Model(SiameseWav2Vec2Model):
+
+
+@dataclass
+class MomentumSiameseWav2Vec2Config(SiameseWav2Vec2Config):
+    momentum: float = field(
+        default=0.99, metadata={"help": "momentum param for the momentum encoder"}
+    )
+
+
+@register_model("momentum_siamese_wav2vec2", dataclass=MomentumSiameseWav2Vec2Config)
+class SiameseWav2Vec2Model(SiameseWav2Vec2Model):
+    def __init__(self, cfg: SiameseWav2Vec2Config):
+        super().__init__(cfg)
+        self.momentum = cfg.momentum
     
+
+

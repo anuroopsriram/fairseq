@@ -263,9 +263,9 @@ def w2v_base_mlp_augment(base_args):
         # (mlpContext, mlpTarget, BatchNorm, Scale, Activation)
         # (False, False, False, 1, "relu"),
 
-        (False, True, True, 4, "relu"),
+        # (False, True, True, 4, "relu"),
         # (True, False, True, 4, "relu"),
-        # (True, True, True, 4, "relu"),
+        (True, True, True, 4, "relu"),
     }
     
     augment_params = [
@@ -311,9 +311,9 @@ def w2v_base_mlp_augment(base_args):
     ]
     drop_params = [
         # (dropout, layerdrop)
-        (0., 0.),
+        # (0., 0.),
         (0.05, 0.025),
-        # (0.1, 0.05),
+        (0.1, 0.05),
     ]
     for run_args in run_args_list:
         param_sweeps = [

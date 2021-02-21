@@ -110,11 +110,20 @@ def w2v_base_mlp(base_args):
             # "logs/w2v.base.mlp.augment.8x400/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.15.unlab",
             # "logs/w2v.base.mlp.augment.8x400/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.05.ld0.025augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.15.unlab",
             # "logs/w2v.base.mlp.augment.8x400/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.05.ld0.025augSrc1.0.augTgt1.0.augsadditive,speed.snr-min6_snr-max15_speed-std0.15.unlab",
+
+            "logs/w2v.base.mlp.augment.8x400/lr0.0005.contextmlpFalse.tgtmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0.normFalseaugSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.1.unlab",
+            "logs/w2v.base.mlp.augment.8x400/lr0.0005.contextmlpFalse.tgtmlpTrue.bnTrue.actrelu.scale4.do0.05.ld0.025.normFalseaugSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.1.unlab",
+            "logs/w2v.base.mlp.augment.8x400/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augsadditive,speed.snr-min6_snr-max15_speed-std0.15.unlab",
+
+            # "logs/w2v.base.mlp.augment.8x400/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.15.unlab",
+            # "logs/w2v.base.mlp.augment.8x400/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.05.ld0.025augSrc1.0.augTgt1.0.augsadditive,speed.snr-min6_snr-max15_speed-std0.15.unlab",
+            # "logs/w2v.base.mlp.augment.8x400/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.05.ld0.025augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.15.unlab",
+            # "logs/w2v.base.mlp.augment.8x400/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.05.ld0.025augSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.15.unlab",
         ],
         "w2v.base.conf.2x100.ft": [
             # No MLP or Aug
-            "logs/w2v.base.conf.2x100/lr0.0005.transconf.unlab",
-            "logs/w2v.base.conf.2x100/lr0.0005.transconf_rp.unlab",
+            # "logs/w2v.base.conf.2x100/lr0.0005.transconf.unlab",
+            # "logs/w2v.base.conf.2x100/lr0.0005.transconf_rp.unlab",
             # # No Aug
             # "logs/w2v.base.conf.2x100/lr0.0005.transconf.ksz3.cmlpFalse.tmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augs{augmentations}.speed-std0.0.unlab",
             # "logs/w2v.base.conf.2x100/lr0.0005.transconf.ksz3.cmlpTrue.tmlpTrue.bnTrue.actrelu.scale4.do0.0.ld0.0augSrc1.0.augTgt1.0.augs{augmentations}.speed-std0.0.unlab",
@@ -143,7 +152,7 @@ def w2v_base_mlp(base_args):
     max_update = 25_000
     # max_update = 80_000
     # lrs = [1e-05, 2e-05, 4e-05]
-    lrs = [2e-05]
+    lrs = [1e-05, 2e-05]
     # lrs = [1e-05, 4e-05]
     # mask_lens = [4, 10]
     # mask_probs = [0.5]
@@ -158,7 +167,7 @@ def w2v_base_mlp(base_args):
 
     # lrs = [1e-05]
     # mask_lens = [3, 4, 5, 7, 10]
-    mask_lens = [10]
+    mask_lens = [3, 6, 10]
     mask_probs = [0.5]
     dos = [0.1]
 
@@ -179,9 +188,9 @@ def w2v_base_mlp(base_args):
                         'mask-prob': mprob,
 
                         "max-update": max_update,
-                        "warmup-steps": int(max_update * 0.15),
-                        "hold-steps": int(max_update * 0.4),
-                        "decay-steps": int(max_update * 0.45),
+                        "warmup-steps": int(max_update * 0.2),
+                        "hold-steps": int(max_update * 0.5),
+                        "decay-steps": int(max_update * 0.3),
                         "w2v-path": checkpoint / "checkpoint_best.pt",
 
                         "augment-audio": False,

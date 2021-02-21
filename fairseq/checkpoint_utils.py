@@ -259,6 +259,9 @@ def load_checkpoint_to_cpu(path, arg_overrides=None, load_on_all_ranks=False):
             torch.distributed.barrier()
         local_path = PathManager.get_local_path(path)
 
+    if not local_path.startswith("/"):
+        local_path = os.path.join("/private/home/anuroops/workspace/w2v3/fairseq", local_path)
+
     with open(local_path, "rb") as f:
         state = torch.load(f, map_location=torch.device("cpu"))
 
@@ -332,6 +335,9 @@ def load_model_ensemble_and_task(
                 filename = filename.replace(".pt", suffix + ".pt")
             else:
                 filename = orig_filename[:-3] + f"_part{shard_idx}.pt"
+
+            if not filename.startswith("/"):
+                filename = os.path.join("/private/home/anuroops/workspace/w2v3/fairseq", filename)
 
             if not PathManager.exists(filename):
                 raise IOError("Model file not found: {}".format(filename))

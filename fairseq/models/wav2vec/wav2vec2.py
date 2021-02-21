@@ -726,7 +726,7 @@ class ConvFeatureExtractionModel(nn.Module):
             conv_bias=False,
         ):
             def make_conv():
-                if index < 4 or conv_type == "conv":
+                if conv_type == "conv":
                     conv = nn.Conv1d(n_in, n_out, k, stride=stride, bias=conv_bias)
                     nn.init.kaiming_normal_(conv.weight)
                     return conv

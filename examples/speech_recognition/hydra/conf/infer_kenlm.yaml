@@ -23,7 +23,7 @@ decoding:
     wordscore: -1
     silweight: 0
 common_eval:
-  results_path: ${decoding.exp_dir}/decode/${decoding.decoder.name}/${dataset.gen_subset}
+  results_path: ${decoding.exp_dir}/decode/${decoding.decoder.name}.${decoding.decoder.beam}/${dataset.gen_subset}
   path: ${decoding.exp_dir}/checkpoint_best.pt
   post_process: letter
 generation:

@@ -263,9 +263,9 @@ def w2v_base_mlp_augment(base_args):
         # (mlpContext, mlpTarget, BatchNorm, Scale, Activation)
         # (False, False, False, 1, "relu"),
 
-        # (False, True, True, 4, "relu"),
+        (False, True, True, 4, "relu"),
         # (True, False, True, 4, "relu"),
-        (True, True, True, 4, "relu"),
+        # (True, True, True, 4, "relu"),
     }
     
     augment_params = [
@@ -294,7 +294,7 @@ def w2v_base_mlp_augment(base_args):
         # (True, "speed", 1., 1., {"speed-std": 0.1}),
         # (True, "speed", 1., 1., {"speed-std": 0.15}),
         (True, "additive,speed", 1., 1., {"snr-min": 8, "snr-max": 15, "speed-std": 0.1}),
-        (True, "additive,speed", 1., 1., {"snr-min": 8, "snr-max": 15, "speed-std": 0.15}),
+        # (True, "additive,speed", 1., 1., {"snr-min": 8, "snr-max": 15, "speed-std": 0.15}),
         # (True, "additive,speed", 1., 1., {"snr-min": 6, "snr-max": 15, "speed-std": 0.15}),
         # (True, "additive,speed", 1., 1., {"snr-min": 8, "snr-max": 15, "speed-std": 0.20}),
         # (True, "additive,speed", 1., 1., {"snr-min": 10, "snr-max": 15, "speed-std": 0.1}),

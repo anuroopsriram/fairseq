@@ -14,9 +14,10 @@ splits = {
 language_models = {
     "kenlm": {
         "path": "/checkpoint/abaevski/data/speech/libri/4-gram.bin",
-        # "automl_beam": 500,
-        "automl_beam": 20,
-        "infer_beam": 1500,
+        "automl_beam": 500,
+        # "automl_beam": 20,
+        # "infer_beam": 1500,
+        "infer_beam": 500,
         "gpus": 1,
         "jobs": 8,
         "shards": 1,
@@ -94,21 +95,22 @@ def automl(args):
 
 
 def infer(args):
-    if args.lmwt is None or args.wrdsc is None:
+    if args.lmwt is None or args.wrdsc is None or args.sil is None:
         raise ValueError(f"Require --lmwt and --wrdsc")
 
     split = splits[args.splits][0]
     lmpath = language_models[args.lm]["path"]
     beam = language_models[args.lm]["infer_beam"]
+    data = "/checkpoint/anuroops/data/asr/ls/" + args.data
     # shards = language_models[args.lm]["shards"]
     shards = 1
     # TODO: Handle multiple shards
     # TODO: Submit job
     cmd = (
-        f"python -u examples/speech_recognition/infer.py {args.data} --gen-subset {split} --labels ltr --lexicon {lexicon} "   
-        f"--path {args.model}/checkpoint_best.pt --load-emissions {args.model}/infer/emissions_{split}.npy "
+        f"python -u examples/speech_recognition/infer.py {data} --gen-subset {split} --labels ltr --lexicon {lexicon} "   
+        f"--path {args.model}/checkpoint_best.pt "  # --load-emissions {args.model}/infer/emissions_{split}.npy "
         f"--results-path {args.model}/infer_{args.lm}_{args.lmwt}_{args.wrdsc}/{split} "
-        f"--beam {beam} --criterion ctc --lm-weight {args.lmwt} --word-score {args.wrdsc} --sil-weight 0 "
+        f"--beam {beam} --criterion ctc --lm-weight {args.lmwt} --word-score {args.wrdsc} --sil-weight {args.sil} "
         f"--max-tokens {MAXTOKS} --nbest 1 --post-process letter "
         f"--seed 1 --task audio_pretraining --w2l-decoder {args.lm} --lm-model {lmpath} "
         f"--num-shards {shards} --shard-id 0 --normalize"
@@ -137,6 +139,7 @@ if __name__ == '__main__':
     # Infer
     parser.add_argument("--lmwt", type=float, default=None)
     parser.add_argument("--wrdsc", type=float, default=None)
+    parser.add_argument("--sil", type=float, default=None)
 
     args = parser.parse_args()
 

@@ -51,7 +51,7 @@ def get_grid(args):
 
         # optimization
         hp('--max-update', [
-            800_000,
+            # 800_000,
             1_600_000,
         ], save_dir_key=lambda val: f'MU{val//1000}k'),
         hp('--update-freq', [args.update_freq], save_dir_key=lambda val: f'ufreq{val}'),

@@ -1,0 +1,6 @@
+# @package _global_
+
+decoding:
+  decoder:
+    lexicon: /checkpoint/wav2letter/transfer_learning/aws/icassp_paper/ams/decoder_sweep/fisher+swbd-train-all-unigram.lex.pipe
+    lmpath: /checkpoint/wav2letter/data/swbd_lm/word_4g.bin

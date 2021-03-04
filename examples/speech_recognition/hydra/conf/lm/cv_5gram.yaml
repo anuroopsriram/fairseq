@@ -1,0 +1,6 @@
+# @package _global_
+
+decoding:
+  decoder:
+    lexicon: /checkpoint/wav2letter/transfer_learning/aws/icassp_paper/lms/cv.lexicon
+    lmpath: /checkpoint/wav2letter/transfer_learning/aws/icassp_paper/lms/cv-5gram.bin

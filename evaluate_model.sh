@@ -12,8 +12,8 @@ MODEL_ALL_800K="logs/w2v_steps_ted.ls.fsh.swbd/w2v_steps_ted.ls.fsh.swbd.s1337.m
 
 # python evaluate_model.py viterbi $MODEL_ALL_800K --data ted10  #--dictdata ted10
 # python evaluate_model.py viterbi $MODEL_ALL_800K --data ls10  #--dictdata ted10
-python evaluate_model.py viterbi $MODEL_ALL_200K --data ls10  #--dictdata ted10
-python evaluate_model.py viterbi $MODEL_ALL_400K --data ls10  #--dictdata ted10
+python evaluate_model.py viterbi $MODEL_ALL_800K --data ls10  #--dictdata ted10
+# python evaluate_model.py viterbi $MODEL_ALL_400K --data ls10  #--dictdata ted10
 
 
 # python examples/speech_recognition/infer.py data/ted_lower/ted.10h \

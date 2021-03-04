@@ -1,5 +1,15 @@
 
 DATASETS = {
+    "ls10": {
+        "train": "ls960_lower/train_10h",
+        "val": "ls960_lower/dev_other",
+    },
+
+    "ls100": {
+        "train": "ls100/train",
+        "val": "ls100/dev_other",
+    },
+
     "ls960": {
         "train": "ls960/train",
         "val": "ls960/dev_other",
@@ -35,6 +45,16 @@ LAB_DATASETS = {
     "swbd10": {
         "train": "joint_swbd/train_swbd_10h",
         "val": "joint_swbd/swbd_dev_rt03",
+        "steps": 25000,
+    },
+    "cv": {
+        "train": "cv/train",
+        "val": "cv/dev",
+        "steps": 25000,
+    },
+    "vp": {
+        "train": "voxpopuli/train",
+        "val": "voxpopuli/dev",
         "steps": 25000,
     }
 }

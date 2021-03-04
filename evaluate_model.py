@@ -35,8 +35,8 @@ language_models = {
 }
 
 lexicon = Path("/checkpoint/abaevski/data/speech/libri/960h/wav2vec/raw/lexicon_ltr.lst")
-# MAXTOKS = 4_000_000
-MAXTOKS = 1_000_000
+MAXTOKS = 4_000_000
+# MAXTOKS = 1_000_000
 
 
 def viterbi(args):
@@ -54,7 +54,7 @@ def viterbi(args):
         f"--target-dict {dictpath} "
         f"--path {args.model}/checkpoint_best.pt --results-path {args.model}/infer/{split} "
         f"--beam 1 --beam-size-token 100 --beam-threshold 100 --criterion ctc --lm-weight 0 --word-score 0 "
-        f"--max-tokens 1000000 --nbest 1 --normalize --num-shards 1 --remove-bpe letter --post-process letter "
+        f"--max-tokens {MAXTOKS} --nbest 1 --normalize --num-shards 1 --remove-bpe letter --post-process letter "
         f"--seed 1 --shard-id 0 --sil-weight 0 --task audio_pretraining --w2l-decoder viterbi "
     )
     print(cmd)

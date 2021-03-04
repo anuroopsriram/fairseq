@@ -1,0 +1,6 @@
+# @package _global_
+
+decoding:
+  decoder:
+    lexicon: /checkpoint/wav2letter/transfer_learning/cc_lm/common_crawl_ls_norm_10percent_4gram_p0011_200kvocab.lexicon
+    lmpath: /checkpoint/wav2letter/transfer_learning/cc_lm/common_crawl_ls_norm_10percent_4gram_p0011_200kvocab.bin.nomemmap

@@ -126,6 +126,7 @@ class AudioPretrainingTask(FairseqTask):
             else:
                 dict_path = os.path.join(cfg.target_dict, f"dict.{cfg.labels}.txt")
             print("\t******* dict_path", dict_path)
+            dict_path = "/private/home/anuroops/workspace/w2vrobust/fairseq/data/dict.ltr.txt"
             target_dictionary = Dictionary.load(dict_path)
         else:
             target_dictionary = None

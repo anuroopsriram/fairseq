@@ -1,0 +1,22 @@
+# @package _group_
+
+defaults:
+    - task: null
+    - model: null
+
+hydra:
+  run:
+    dir: ${common_eval.results_path}
+  sweep:
+    dir: ${common_eval.results_path}
+    subdir: ""
+common_eval:
+  results_path: ${decoding.exp_dir}/decode/${decoding.decoder.name}_gpu${distributed_training.distributed_world_size}/${dataset.gen_subset}
+  path: ${decoding.exp_dir}/checkpoint_best.pt
+  post_process: letter
+generation:
+  nbest: 1
+  beam: 500
+dataset:
+  max_tokens: 1000000
+  gen_subset: test

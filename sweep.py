@@ -31,6 +31,7 @@ def get_args():
                         # default=os.path.join('/checkpoint', os.environ['USER'], str(datetime.date.today())),
                         default="logs",
                         help='save checkpoints and logs in <checkpoints-dir>/<prefix>.<save_dir_key>')
+    parser.add_argument('--last', action="store_true", default=False)
 
     parser.add_argument('--job-dir',
                         default=None,
@@ -82,6 +83,7 @@ def get_args():
     parser.add_argument('-D', '--dataset', choices=list(config.DATASETS.keys()) + list(config.LAB_DATASETS.keys()),
                         required=True)
     parser.add_argument('-u', '--update-freq', type=int, default=1)
+    # parser.add_argument('-f', '--finetune-from-model', type=str, default=None)
 
     args = parser.parse_args()
     return args

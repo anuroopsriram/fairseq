@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from pathlib import Path
 import sys
 
 # root = sys.path[0]
@@ -12,7 +13,15 @@ from sweep import hyperparam as hp
 
 
 def get_grid(args):
+    if args.last:
+        ckpt = f'{args.checkpoints_dir}/checkpoint_last.pt'
+    else:
+        ckpt = f'{args.checkpoints_dir}/checkpoint_best.pt'
+    assert Path(ckpt).exists()
+
     return [
+        hp('--finetune-from-model', ckpt),
+
         # common
         hp('--fp16', True, binary_flag=True),
         hp('--log-format', 'json'),
@@ -20,7 +29,7 @@ def get_grid(args):
         hp('--seed', [1337], save_dir_key=lambda val: f's{val}'),
 
         # checkpoint
-        hp('--save-interval-updates', 1000 if args.local else 100000),
+        # hp('--save-interval-updates', 1000 if args.local else 100000),
         hp('--keep-interval-updates', -1),
         hp('--no-epoch-checkpoints'),
         hp('--no-save', True if args.local else False, binary_flag=True),
@@ -31,12 +40,12 @@ def get_grid(args):
 
         # task
         hp('--task', 'audio_pretraining'),
-        hp('--max-sample-size', 250000, save_dir_key=lambda val: f'mxsz{val}'),
-        hp('--min-sample-size', 32000, save_dir_key=lambda val: f'mnsz{val}'),
+        hp('--max-sample-size', 250000),  # , save_dir_key=lambda val: f'mxsz{val}'),
+        hp('--min-sample-size', 32000),  # , save_dir_key=lambda val: f'mnsz{val}'),
 
         # dataset
         hp('--num-workers', 6),
-        hp('--max-tokens', 700000 if args.local else 1400000, save_dir_key=lambda val: f'maxtok{val}'),
+        hp('--max-tokens', 700000 if args.local else 1400000),  # , save_dir_key=lambda val: f'maxtok{val}'),
         hp('--skip-invalid-size-inputs-valid-test', True, binary_flag=True),
         hp('--validate-interval-updates', 100 if args.local else 10000),
         hp('--validate-interval', 5),
@@ -51,13 +60,20 @@ def get_grid(args):
 
         # optimization
         hp('--max-update', [
+            25000,
+            # 50000,
+            # 100000,
             # 200000,
             # 400000,
-            # 800000,
-            1200000,
         ], save_dir_key=lambda val: f'MU{val//1000}k'),
         hp('--update-freq', [args.update_freq], save_dir_key=lambda val: f'ufreq{val}'),
-        hp('--lr', 0.0005),
+        hp('--lr', [
+            # 0.0005,
+            # 0.0001,
+            # 0.00005,
+            0.00001,
+            0.000001,
+        ], save_dir_key=lambda val: f'lr{val}'),
         hp('--clip-norm', [25.0]),
 
         # optimizer
@@ -79,7 +95,7 @@ def get_grid(args):
         hp('--dropout-features', [0.1]),
         hp('--attention-dropout', [0.1]),
         hp('--feature-grad-mult', [0.1]),
-        hp('--extractor-mode', ['layer_norm'], save_dir_key=lambda v: v),
+        hp('--extractor-mode', ['layer_norm'])  # , save_dir_key=lambda v: v),
     ]
 
 

@@ -5,7 +5,8 @@ hydra:
     gpus_per_node: ${distributed_training.distributed_world_size}
     tasks_per_node: ${hydra.launcher.gpus_per_node}
     nodes: 1
-    partition: learnfair,dev
+    partition: learnfair,dev,priority
+    comment: "interspeech deadline (04/02)"
     mem_gb: 40
     timeout_min: 4320
     max_num_timeout: 50

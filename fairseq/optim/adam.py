@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from fairseq.optim.agc import AGC
 import logging
 import math
 from collections.abc import Collection
@@ -36,6 +37,10 @@ class FairseqAdamConfig(FairseqDataclass):
     # TODO common vars below in parent
     tpu: bool = II("common.tpu")
     lr: List[float] = II("optimization.lr")
+    # AGC
+    agc: bool = field(default=False)
+    agc_clipping: float = field(default=1e-2)
+    agc_eps: float = field(default=1e-3)
 
 
 @register_optimizer("adam", dataclass=FairseqAdamConfig)
@@ -64,6 +69,8 @@ class FairseqAdam(FairseqOptimizer):
             self._optimizer = fused_adam_cls(params, **self.optimizer_config)
         else:
             self._optimizer = Adam(params, **self.optimizer_config)
+        if cfg.agc:
+            self._optimizer = AGC(params, self._optimizer, cfg.agc_clipping, cfg.agc_eps, model=None, ignore_agc=["fc"])
 
     @property
     def optimizer_config(self):

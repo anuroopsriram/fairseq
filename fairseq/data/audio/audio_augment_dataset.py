@@ -42,6 +42,7 @@ class ChainRunner:
         # sox might misbehave sometimes by giving nan/inf if sequences are too short (or silent)
         # and the effect chain includes eg `pitch`
         if torch.isnan(y).any() or torch.isinf(y).any():
+            print("ERROR!")
             return x
         return y.squeeze(0)
 
@@ -94,7 +95,8 @@ class AudioAugmentDataset(BaseWrapperDataset):
         return np.random.randn() * self.pitch_shift_std
 
     def random_speed(self):
-        return 1. + np.random.randn() * self.speed_std
+        rand = min(max(-3, np.random.randn()), 3)
+        return max(1. + rand * self.speed_std, 0.1)
 
     def random_room_size(self):
         return min(np.abs(np.random.randn() * self.reverb_room_std), 100.)
@@ -138,4 +140,10 @@ class AudioAugmentDataset(BaseWrapperDataset):
         item["original_source"] = source
         item["source"] = _maybe_aug(source.clone(), self.augment_source_prob)
         item["target"] = _maybe_aug(source.clone(), self.augment_target_prob)
+        # print(
+        #     "Source:", source.shape, source.abs().sum(),
+        #     (source - item["source"]).abs().sum(), 
+        #     (source - item["target"]).abs().sum(),
+        #     (item["source"] - item["target"]).abs().sum(),
+        # )
         return item

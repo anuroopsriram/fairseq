@@ -101,7 +101,7 @@ def main(args, base_params, data_dir, task):
             # tasks_per_node=1,
             tasks_per_node=args.gpus,
             slurm_constraint='volta32gb' if not args.no32gb else '',
-            slurm_comment=args.comment
+            slurm_comment=args.comment,
         )
         if args.shards > 1:
             cmds = [[] + cmd + [f'--shard-id {i}'] for i in range(args.shards)]

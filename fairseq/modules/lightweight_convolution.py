@@ -20,6 +20,7 @@ def LightweightConv(
     weight_dropout=0.0,
     weight_softmax=False,
     bias=False,
+    stride=1,
 ):
     if torch.cuda.is_available():
         try:
@@ -44,6 +45,7 @@ def LightweightConv(
         weight_dropout=weight_dropout,
         weight_softmax=weight_softmax,
         bias=bias,
+        stride=stride,
     )
 
 
@@ -159,12 +161,14 @@ class LightweightConv1dTBC(nn.Module):
         weight_dropout=0.0,
         weight_softmax=False,
         bias=False,
+        stride=1,
     ):
         super().__init__()
         self.input_size = input_size
         self.kernel_size = kernel_size
         self.padding_l = padding_l
         self.num_heads = num_heads
+        self.stride = stride
         self.weight_dropout_module = FairseqDropout(
             weight_dropout, module_name=self.__class__.__name__
         )
@@ -280,6 +284,9 @@ class LightweightConv1dTBC(nn.Module):
 
         output = torch.bmm(weight_expanded, x)
         output = output.transpose(0, 1).contiguous().view(T, B, C)
+
+        # if self.stride > 1:
+        #     output = F.avg_pool1d(output.permute(1, 2, 0), kernel_size=1, stride=self.stride).permute(2, 0, 1)
         return output
 
     def reorder_incremental_state(self, incremental_state, new_order):

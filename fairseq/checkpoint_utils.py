@@ -339,6 +339,9 @@ def load_model_ensemble_and_task(
             if not filename.startswith("/"):
                 filename = os.path.join("/private/home/anuroops/workspace/w2v3/fairseq", filename)
 
+            from pathlib import Path
+            filename = str(Path(filename).resolve().absolute())
+
             if not PathManager.exists(filename):
                 raise IOError("Model file not found: {}".format(filename))
             if state is None:

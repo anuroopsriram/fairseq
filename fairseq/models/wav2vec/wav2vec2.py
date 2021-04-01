@@ -3,12 +3,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from torch.nn.modules.linear import Identity
 from fairseq.models.lightconv import LightConvEncoderLayer
 from fairseq.modules.relative_positional_attention import RelativePositionalMultiHeadAttention
 import math
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from omegaconf import open_dict
 
 import numpy as np
@@ -37,6 +38,7 @@ from torch.nn import BatchNorm1d
 EXTRACTOR_MODE_CHOICES = ChoiceEnum(["default", "layer_norm"])
 MASKING_DISTRIBUTION_CHOICES = ChoiceEnum(["static", "uniform", "normal", "poisson"])
 CONV_CHOICES = ChoiceEnum(["conv", "light_conv", "dynamic_conv"])
+CONSISTENCY_LOSS_CHOICES = ChoiceEnum(["l2", "l1", "cosine"])
 
 
 class Lambda(nn.Module):
@@ -57,7 +59,7 @@ class Permute(nn.Module):
         self.dims = dims
 
     def forward(self, x):
-        return x.permute(*self.dims)
+        return x.permute(*self.dims)  # .contiguous()
 
     def __repr__(self):
         return f"Permute({self.dims})"
@@ -279,8 +281,30 @@ class Wav2Vec2Config(FairseqDataclass):
     num_relpos_embeds: int = field(default=768)
     lin_dropout: float = field(default=0.1)
     transformer_type: str = field(default="")
+    conformer_norm: str = field(default="batchnorm")
     # Light / Dynamic Conv
-    conv_type: CONV_CHOICES = field(default="conv")
+    conv_type: CONV_CHOICES = field(default="conv")  # Deprecated
+    conv_types: str = field(default="")
+
+    # TODO
+    lconv_encoder_glu: bool = field(default=False)
+    lconv_weight_softmax: bool = field(default=False)
+
+    lconv_encoder_noglu: bool = field(default=True)
+    lconv_weight_nosoftmax: bool = field(default=True)
+    lconv_weight_dropout: float = field(default=0.1)
+    lconv_relu_dropout: float = field(default=0.)
+    lconv_input_dropout: float = field(default=0.)
+    lconv_encoder_normalize_before: bool = field(default=False)
+    lconv_encoder_attention_heads: int = field(default=8)
+    lconv_avg_pool: bool = field(default=True)
+    # GEGLU
+    ffn_glu: bool = field(default=False)
+    no_fc_bias: bool = field(default=False)
+    # No Norm
+    nonorm: bool = field(default=False)
+    # Consistency los
+    consistency_loss: Optional[CONSISTENCY_LOSS_CHOICES] = field(default=None)
 
 
 @register_model("wav2vec2", dataclass=Wav2Vec2Config)
@@ -291,13 +315,14 @@ class Wav2Vec2Model(BaseFairseqModel):
 
         feature_enc_layers = eval(cfg.conv_feature_layers)
         self.embed = feature_enc_layers[-1][0]
+        self.consistency_loss = cfg.consistency_loss
 
         self.feature_extractor = ConvFeatureExtractionModel(
             conv_layers=feature_enc_layers,
             dropout=0.0,
             mode=cfg.extractor_mode,
             conv_bias=cfg.conv_bias,
-            conv_type=cfg.conv_type,
+            conv_types=cfg.conv_types,
             cfg=cfg,
         )
 
@@ -377,7 +402,7 @@ class Wav2Vec2Model(BaseFairseqModel):
         )
 
         self.encoder = TransformerEncoder(cfg)
-        self.layer_norm = LayerNorm(self.embed)
+        self.layer_norm = LayerNorm(self.embed) if not cfg.nonorm else Identity()
 
         self.target_glu = None
         if cfg.target_glu:
@@ -422,7 +447,7 @@ class Wav2Vec2Model(BaseFairseqModel):
 
         return cls(cfg)
 
-    def apply_mask(self, x, padding_mask):
+    def apply_mask(self, x, padding_mask, y=None):
         B, T, C = x.shape
         if self.mask_prob > 0:
             mask_indices = compute_mask_indices(
@@ -438,6 +463,8 @@ class Wav2Vec2Model(BaseFairseqModel):
             )
             mask_indices = torch.from_numpy(mask_indices).to(x.device)
             x[mask_indices] = self.mask_emb
+            if y is not None:
+                y[mask_indices] = self.mask_emb
         else:
             mask_indices = None
 
@@ -459,8 +486,13 @@ class Wav2Vec2Model(BaseFairseqModel):
                 .expand(-1, T, -1)
             )
             x[mask_channel_indices] = 0
+            if y is not None:
+                y[mask_channel_indices] = 0
 
-        return x, mask_indices
+        if y is not None:
+            return x, mask_indices, y
+        else:
+            return x, mask_indices
 
     def sample_negatives(self, y, num):
 
@@ -536,6 +568,8 @@ class Wav2Vec2Model(BaseFairseqModel):
         return logits
 
     def forward(self, source, padding_mask=None, mask=True, features_only=False, target=None):
+        if self.consistency_loss:
+            assert target is not None
 
         features, features_pen = self.compute_features(source, self.feature_grad_mult)
         if target is None:
@@ -554,6 +588,8 @@ class Wav2Vec2Model(BaseFairseqModel):
 
         if self.post_extract_proj is not None:
             features = self.post_extract_proj(features)
+            if self.consistency_loss:
+                features2 = self.post_extract_proj(unmasked_features)
 
         features = self.dropout_input(features)
         unmasked_features = self.dropout_features(unmasked_features)
@@ -573,7 +609,11 @@ class Wav2Vec2Model(BaseFairseqModel):
             features = self.project_inp(features)
 
         if mask:
-            x, mask_indices = self.apply_mask(features, padding_mask)
+            if self.consistency_loss:
+                x, mask_indices, x2 = self.apply_mask(features, padding_mask, features2)
+            else:
+                x, mask_indices = self.apply_mask(features, padding_mask)
+                x2 = None
             if mask_indices is not None:
                 y = unmasked_features[mask_indices].view(
                     unmasked_features.size(0), -1, unmasked_features.size(-1)
@@ -582,6 +622,7 @@ class Wav2Vec2Model(BaseFairseqModel):
                 y = unmasked_features
         else:
             x = features
+            x2 = None
             y = unmasked_features
             mask_indices = None
 
@@ -589,6 +630,9 @@ class Wav2Vec2Model(BaseFairseqModel):
 
         if features_only:
             return {"x": x, "padding_mask": padding_mask}
+
+        if x2 is not None:
+            x2 = self.encoder(x2, padding_mask=padding_mask)
 
         if self.quantizer:
             q = self.quantizer(y, produce_targets=False)
@@ -627,15 +671,25 @@ class Wav2Vec2Model(BaseFairseqModel):
                 negs, _ = self.sample_negatives(y, y.size(1))
 
         x = x[mask_indices].view(x.size(0), -1, x.size(-1))
+        if x2 is not None:
+            x2 = x2[mask_indices].view(x.size(0), -1, x.size(-1))
 
         if self.target_glu:
             y = self.target_glu(y)
             negs = self.target_glu(negs)
 
         x = self.final_proj(x)
+        if x2 is not None:
+            x1 = x
+            x2 = self.final_proj(x2)
+
         x = self.compute_preds(x, y, negs)
 
         result = {"x": x, "padding_mask": padding_mask, "features_pen": features_pen}
+
+        if x2 is not None:
+            result["x1"] = x1
+            result["x2"] = x2
 
         if prob_ppl is not None:
             result["prob_perplexity"] = prob_ppl
@@ -691,6 +745,18 @@ class Wav2Vec2Model(BaseFairseqModel):
         if "features_pen" in net_output:
             pen.append(net_output["features_pen"])
 
+        if self.consistency_loss:
+            if self.consistency_loss == "l1":
+                diff = (net_output["x1"] - net_output["x2"]) / net_output["x1"].shape[-1]
+                pen.append(torch.norm(diff, p=1, dim=2).sum(1).mean())
+            elif self.consistency_loss == "l2":
+                diff = (net_output["x1"] - net_output["x2"]) / net_output["x1"].shape[-1]
+                pen.append(torch.norm(diff, p=2, dim=2).sum(1).mean())
+            elif self.consistency_loss == "cosine":
+                pen.append(
+                    1 - F.cosine_similarity(net_output["x1"], net_output["x2"], dim=2).sum(1).mean()
+                )
+            # print("LOSS:", pen)
         return pen
 
     def remove_pretraining_modules(self):
@@ -708,12 +774,16 @@ class ConvFeatureExtractionModel(nn.Module):
         dropout: float = 0.0,
         mode: str = "default",
         conv_bias: bool = False,
-        conv_type: str = "conv",
+        conv_types: str = "",
     ):
         super().__init__()
 
         assert mode in {"default", "layer_norm"}
-        self.conv_type = conv_type
+        if len(conv_types) == 0:
+            self.conv_types = ["conv" for _ in conv_layers]
+        else:
+            self.conv_types = conv_types.split(",")
+            assert len(self.conv_types) == len(conv_layers)
 
         def block(
             index,
@@ -726,30 +796,38 @@ class ConvFeatureExtractionModel(nn.Module):
             conv_bias=False,
         ):
             def make_conv():
+                conv_type = self.conv_types[index]
                 if conv_type == "conv":
                     conv = nn.Conv1d(n_in, n_out, k, stride=stride, bias=conv_bias)
                     nn.init.kaiming_normal_(conv.weight)
                     return conv
                 
-                elif conv_type in ("light_conv", "dynamic"):
+                elif conv_type in ("light_conv", "dynamic_conv"):
                     cfg_copy = deepcopy(cfg)
                     with open_dict(cfg_copy):
                         cfg_copy.encoder_embed_dim = n_in
+                        cfg.encoder_ffn_embed_dim = n_in * 4
                         cfg_copy.encoder_conv_dim = n_out
-                        cfg_copy.encoder_glu = True
+                        cfg_copy.encoder_glu = not cfg.lconv_encoder_noglu
                         cfg_copy.encoder_conv_type = "lightweight" if conv_type == "light_conv" else "dynamic"
-                        cfg_copy.weight_softmax = True
-                        cfg_copy.weight_dropout = cfg.attention_dropout
-                        cfg_copy.relu_dropout = cfg.activation_dropout
-                        cfg_copy.input_dropout = 0
-                        cfg_copy.encoder_normalize_before = False
-                        cfg_copy.encoder_attention_heads = 2
+                        cfg_copy.weight_softmax = not cfg.lconv_weight_nosoftmax
+                        cfg_copy.weight_dropout = cfg.lconv_weight_dropout
+                        cfg_copy.relu_dropout = cfg.lconv_relu_dropout
+                        cfg_copy.input_dropout = cfg.lconv_input_dropout
+                        cfg_copy.encoder_normalize_before = cfg.lconv_encoder_normalize_before
+                        cfg_copy.encoder_attention_heads = cfg.lconv_encoder_attention_heads
+                    if cfg.lconv_avg_pool:
+                        pooling = nn.AvgPool1d(kernel_size=stride)
+                    else:
+                        pooling = nn.AvgPool1d(kernel_size=1, stride=stride)
                     return nn.Sequential(
                         Permute(2, 0, 1),
-                        LightConvEncoderLayer(cfg_copy, kernel_size=k),
+                        LightConvEncoderLayer(cfg_copy, kernel_size=k, stride=1),
                         Permute(1, 2, 0),
-                        nn.AvgPool1d(kernel_size=stride),
+                        # pooling,
                     )
+                else:
+                    raise ValueError(f"Invalid conv type: {conv_type}")
 
             assert (
                 is_layer_norm and is_group_norm
@@ -789,8 +867,8 @@ class ConvFeatureExtractionModel(nn.Module):
                     dim,
                     k,
                     stride,
-                    is_layer_norm=mode == "layer_norm",
-                    is_group_norm=mode == "default" and i == 0,
+                    is_layer_norm=mode == "layer_norm" and not cfg.nonorm,
+                    is_group_norm=mode == "default" and i == 0 and not cfg.nonorm,
                     conv_bias=conv_bias,
                 )
             )
@@ -841,7 +919,7 @@ class TransformerEncoder(nn.Module):
             ]
         )
         self.layer_norm_first = args.layer_norm_first
-        self.layer_norm = LayerNorm(self.embedding_dim)
+        self.layer_norm = LayerNorm(self.embedding_dim) if not args.nonorm else Identity()
         self.layerdrop = args.encoder_layerdrop
 
         self.apply(init_bert_params)
@@ -857,6 +935,9 @@ class TransformerEncoder(nn.Module):
                         activation_dropout=args.activation_dropout,
                         activation_fn=args.activation_fn,
                         layer_norm_first=args.layer_norm_first,
+                        ffn_glu=args.ffn_glu,
+                        fc_bias=not args.no_fc_bias,
+                        nonorm=args.nonorm
                     )
         elif transformer_type in ("conf", "conf_relpos"):
             use_rel_posn_mha = transformer_type == "conf_relpos"
@@ -873,6 +954,7 @@ class TransformerEncoder(nn.Module):
                 use_rel_posn_mha=use_rel_posn_mha,
                 num_relpos_embeds=args.num_relpos_embeds,
                 lin_dropout=args.lin_dropout,
+                norm=args.conformer_norm,
             )
         else:
             raise ValueError(f"Transformer type {transformer_type} not supported")
@@ -939,6 +1021,9 @@ class TransformerSentenceEncoderLayer(nn.Module):
         activation_dropout: float = 0.1,
         activation_fn: str = "relu",
         layer_norm_first: bool = False,
+        ffn_glu: bool = False,
+        fc_bias=True,
+        nonorm=False,
     ) -> None:
 
         super().__init__()
@@ -963,12 +1048,15 @@ class TransformerSentenceEncoderLayer(nn.Module):
         self.layer_norm_first = layer_norm_first
 
         # layer norm associated with the self attention layer
-        self.self_attn_layer_norm = LayerNorm(self.embedding_dim)
-        self.fc1 = nn.Linear(self.embedding_dim, ffn_embedding_dim)
-        self.fc2 = nn.Linear(ffn_embedding_dim, self.embedding_dim)
+        self.self_attn_layer_norm = LayerNorm(self.embedding_dim) if not nonorm else Identity()
+        self.fc1 = nn.Linear(self.embedding_dim, ffn_embedding_dim, bias=fc_bias)
+        self.fc2 = nn.Linear(ffn_embedding_dim, self.embedding_dim, bias=fc_bias)
+        self.ffn_glu = ffn_glu
+        if ffn_glu:
+            self.fc_glu = nn.Linear(self.embedding_dim, ffn_embedding_dim, bias=fc_bias)
 
         # layer norm associated with the position wise feed-forward NN
-        self.final_layer_norm = LayerNorm(self.embedding_dim)
+        self.final_layer_norm = LayerNorm(self.embedding_dim) if not nonorm else Identity()
 
     def forward(
         self,
@@ -1000,6 +1088,8 @@ class TransformerSentenceEncoderLayer(nn.Module):
             residual = x
             x = self.final_layer_norm(x)
             x = self.activation_fn(self.fc1(x))
+            if self.ffn_glu:
+                x = x * self.fc_glu(residual)
             x = self.dropout2(x)
             x = self.fc2(x)
             x = self.dropout3(x)
@@ -1020,6 +1110,8 @@ class TransformerSentenceEncoderLayer(nn.Module):
 
             residual = x
             x = self.activation_fn(self.fc1(x))
+            if self.ffn_glu:
+                x = x * self.fc_glu(residual)
             x = self.dropout2(x)
             x = self.fc2(x)
             x = self.dropout3(x)
@@ -1044,7 +1136,8 @@ class ConformerEncoderLayer(nn.Module):
             use_rel_posn_mha: bool =False,
             num_relpos_embeds: int =768,
             lin_dropout: float =0.1,
-            use_mha: bool = True
+            use_mha: bool = True,
+            norm: str = "batchnorm"
     ):
         super().__init__()
         self.embedding_dim = embedding_dim
@@ -1087,6 +1180,14 @@ class ConformerEncoderLayer(nn.Module):
                     self_attention=True,
                 )
             self.self_attn_dropout = nn.Dropout(dropout)
+        assert norm in ("batchnorm", "layernorm")
+        norm = nn.BatchNorm1d(embedding_dim * 2) if norm == "batchnorm" else (
+            nn.Sequential(
+                Permute(0, 2, 1),
+                nn.LayerNorm(embedding_dim * 2),
+                Permute(0, 2, 1),
+            )
+        )
         self.conv = nn.Sequential(
             nn.LayerNorm(embedding_dim),
             Permute(1, 2, 0),  # T x B x C -> B x C x T
@@ -1095,7 +1196,7 @@ class ConformerEncoderLayer(nn.Module):
             nn.Conv1d(embedding_dim * 2, embedding_dim * 2, kern_size,
                       groups=embedding_dim, padding=pad),
             SamePad(kern_size),
-            nn.BatchNorm1d(embedding_dim * 2),
+            norm,
             Lambda(self.activation_fn1),
             nn.Conv1d(embedding_dim * 2, embedding_dim, kernel_size=1),
             nn.Dropout(dropout),

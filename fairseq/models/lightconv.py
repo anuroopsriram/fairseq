@@ -620,10 +620,11 @@ class LightConvEncoderLayer(nn.Module):
         kernel_size: kernel size of the convolution
     """
 
-    def __init__(self, args, kernel_size=0):
+    def __init__(self, args, kernel_size=0, stride=1):
         super().__init__()
         self.embed_dim = args.encoder_embed_dim
         self.conv_dim = args.encoder_conv_dim
+        self.stride = stride
         padding_l = (
             kernel_size // 2
             if kernel_size % 2 == 1
@@ -644,6 +645,7 @@ class LightConvEncoderLayer(nn.Module):
                 weight_softmax=args.weight_softmax,
                 num_heads=args.encoder_attention_heads,
                 weight_dropout=args.weight_dropout,
+                stride=stride,
             )
         elif args.encoder_conv_type == "dynamic":
             self.conv = DynamicConv(
@@ -653,6 +655,7 @@ class LightConvEncoderLayer(nn.Module):
                 weight_softmax=args.weight_softmax,
                 num_heads=args.encoder_attention_heads,
                 weight_dropout=args.weight_dropout,
+                stride=stride
             )
         else:
             raise NotImplementedError

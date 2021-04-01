@@ -25,6 +25,7 @@ def DynamicConv(
     conv_bias=False,
     query_size=None,
     in_proj=False,
+    stride=1,
 ):
     if torch.cuda.is_available():
         try:
@@ -55,6 +56,7 @@ def DynamicConv(
         bias=bias,
         conv_bias=conv_bias,
         query_size=query_size,
+        stride=stride,
     )
 
 
@@ -105,6 +107,7 @@ class DynamicConv1dTBC(nn.Module):
         conv_bias=False,
         query_size=None,
         in_proj=False,
+        stride=1,
     ):
         super().__init__()
         self.input_size = input_size
@@ -117,6 +120,7 @@ class DynamicConv1dTBC(nn.Module):
         )
         self.weight_softmax = weight_softmax
         self.renorm_padding = renorm_padding
+        self.stride = stride
 
         if in_proj:
             self.weight_linear = Linear(
@@ -167,6 +171,7 @@ class DynamicConv1dTBC(nn.Module):
 
         if self.conv_bias is not None:
             output = output + self.conv_bias.view(1, 1, -1)
+        
         return output
 
     def _forward_unfolded(self, x, incremental_state, query):
@@ -275,6 +280,8 @@ class DynamicConv1dTBC(nn.Module):
             weight_expanded = weight_expanded.narrow(2, P, T)  # B*H x T x T
         output = torch.bmm(weight_expanded, x)
         output = output.transpose(0, 1).contiguous().view(T, B, C)
+        # if self.stride > 1:
+        #     output = F.avg_pool1d(output.permute(1, 2, 0), kernel_size=1, stride=self.stride).permute(2, 0, 1)
         return output
 
     def reorder_incremental_state(self, incremental_state, new_order):

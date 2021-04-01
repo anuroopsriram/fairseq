@@ -49,7 +49,7 @@ base_params = {
     'max-tokens': 1400000,
     'max-update': 400000,
     'skip-invalid-size-inputs-valid-test': True,
-    'ddp-backend no_c10d': True,
+    'ddp-backend': 'no_c10d',
     'update-freq': 1,
 }
 
@@ -69,6 +69,10 @@ def w2v_base(base_args):
                     "total-num-update": run_args["updates"],
                     "max-update": run_args["updates"],
                     "update-freq": run_args["update_freq"],
+
+                    # "ddp-backend": "fully_sharded",
+                    # "cpu-offload": True,
+                    # "no-reshard-after-forward": True,
                 },
             )
             for lr in lrs
@@ -825,14 +829,17 @@ def w2v_base_consistency(base_args):
     consistency_losses = [
         "l1",
         "l2",
-        "cosine"
+        # "cosine"
     ]
     consistency_loss_weights = [
-        0.01,
-        0.1,
-        1.,
-        10.,
-        100.,
+        0.00001,
+        0.0001,
+        0.001
+        # 0.01,
+        # 0.1,
+        # 1.,
+        # 10.,
+        # 100.,
     ]
     for run_args in run_args_list:
         param_sweeps = [

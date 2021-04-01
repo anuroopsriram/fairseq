@@ -17,6 +17,8 @@ class FairseqDecoder(nn.Module):
         super().__init__()
         self.dictionary = dictionary
         self.onnx_trace = False
+        self.adaptive_softmax = None
+
 
     def forward(self, prev_output_tokens, encoder_out=None, **kwargs):
         """
@@ -56,6 +58,19 @@ class FairseqDecoder(nn.Module):
         raise NotImplementedError
 
     def get_normalized_probs(
+        self,
+        net_output: Tuple[Tensor, Optional[Dict[str, List[Optional[Tensor]]]]],
+        log_probs: bool,
+        sample: Optional[Dict[str, Tensor]] = None,
+    ):
+        """Get normalized probabilities (or log probs) from a net's output."""
+        return self.get_normalized_probs_scriptable(net_output, log_probs, sample)
+
+    # TorchScript doesn't support super() method so that the scriptable Subclass
+    # can't access the base class model in Torchscript.
+    # Current workaround is to add a helper function with different name and
+    # call the helper function from scriptable Subclass.
+    def get_normalized_probs_scriptable(
         self,
         net_output: Tuple[Tensor, Optional[Dict[str, List[Optional[Tensor]]]]],
         log_probs: bool,

@@ -70,9 +70,9 @@ def w2v_base(base_args):
                     "max-update": run_args["updates"],
                     "update-freq": run_args["update_freq"],
 
-                    # "ddp-backend": "fully_sharded",
+                    "ddp-backend": "fully_sharded",
                     # "cpu-offload": True,
-                    # "no-reshard-after-forward": True,
+                    "no-reshard-after-forward": True,
                 },
             )
             for lr in lrs

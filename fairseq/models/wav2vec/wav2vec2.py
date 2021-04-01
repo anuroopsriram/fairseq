@@ -560,12 +560,13 @@ class Wav2Vec2Model(BaseFairseqModel):
 
         logits = torch.cosine_similarity(x.float(), targets.float(), dim=-1).type_as(x)
 
-        logits /= self.logit_temp
+        logits = logits / self.logit_temp
 
         if neg_is_pos.any():
             logits[1:][neg_is_pos] = float("-inf")
 
         return logits
+
 
     def forward(self, source, padding_mask=None, mask=True, features_only=False, target=None):
         if self.consistency_loss:
@@ -974,7 +975,7 @@ class TransformerEncoder(nn.Module):
 
         x_conv = self.pos_conv(x.transpose(1, 2))
         x_conv = x_conv.transpose(1, 2)
-        x += x_conv
+        x = x + x_conv
 
         if not self.layer_norm_first:
             x = self.layer_norm(x)

@@ -57,6 +57,7 @@ def load_langpair_dataset(
     num_buckets=0,
     shuffle=True,
     pad_to_multiple=1,
+    prepend_bos_src=None,
 ):
     def split_exists(split, src, tgt, lang, data_path):
         filename = os.path.join(data_path, "{}.{}-{}.{}".format(split, src, tgt, lang))
@@ -128,6 +129,9 @@ def load_langpair_dataset(
         src_dataset = PrependTokenDataset(src_dataset, src_dict.bos())
         if tgt_dataset is not None:
             tgt_dataset = PrependTokenDataset(tgt_dataset, tgt_dict.bos())
+    elif prepend_bos_src is not None:
+        logger.info(f"prepending src bos: {prepend_bos_src}")
+        src_dataset = PrependTokenDataset(src_dataset, prepend_bos_src)
 
     eos = None
     if append_source_id:
@@ -228,7 +232,7 @@ class TranslationConfig(FairseqDataclass):
     eval_bleu: bool = field(
         default=False, metadata={"help": "evaluation with BLEU scores"}
     )
-    eval_bleu_args: str = field(
+    eval_bleu_args: Optional[str] = field(
         default="{}",
         metadata={
             "help": 'generation args for BLUE scoring, e.g., \'{"beam": 4, "lenpen": 0.6}\', as JSON string'
@@ -241,7 +245,7 @@ class TranslationConfig(FairseqDataclass):
             "use 'space' to disable detokenization; see fairseq.data.encoders for other options"
         },
     )
-    eval_bleu_detok_args: str = field(
+    eval_bleu_detok_args: Optional[str] = field(
         default="{}",
         metadata={"help": "args for building the tokenizer, if needed, as JSON string"},
     )
@@ -394,7 +398,11 @@ class TranslationTask(FairseqTask):
         if self.cfg.eval_bleu:
 
             def sum_logs(key):
-                return sum(log.get(key, 0) for log in logging_outputs)
+                import torch
+                result = sum(log.get(key, 0) for log in logging_outputs)
+                if torch.is_tensor(result):
+                    result = result.cpu()
+                return result
 
             counts, totals = [], []
             for i in range(EVAL_BLEU_ORDER):

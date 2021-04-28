@@ -272,6 +272,7 @@ class Wav2Vec2Config(FairseqDataclass):
     mlp_scale: int = field(default=2)
     mlp_batch_norm: bool = field(default=False)
     mlp_activation: ChoiceEnum(utils.get_available_activation_fns()) = field(default="relu")
+    mlp_nhidden: int = field(default=0)
     # Conformer
     activation_fn1: ChoiceEnum(utils.get_available_activation_fns()) = field(default="swish")
     activation_fn2: ChoiceEnum(utils.get_available_activation_fns()) = field(default="gelu")
@@ -413,25 +414,39 @@ class Wav2Vec2Model(BaseFairseqModel):
         if cfg.projection_mlp_context:
             self.final_proj = self._create_mlp(
                 cfg.encoder_embed_dim, cfg.encoder_embed_dim * cfg.mlp_scale, final_dim,
-                not cfg.mlp_batch_norm, cfg.mlp_activation
+                not cfg.mlp_batch_norm, cfg.mlp_activation, cfg.mlp_nhidden
             )
         else:
             self.final_proj = nn.Linear(cfg.encoder_embed_dim, final_dim)
 
-    def _create_mlp(self, in_dim, inner_dim, out_dim, batch_norm, act):
+    def _create_mlp(self, in_dim, inner_dim, out_dim, batch_norm, act, nhidden=0):
         activation_fn = utils.get_activation_fn(act)
-        return nn.Sequential(
+        layers = [
             nn.Linear(in_dim, inner_dim),
             MaybeBatchNorm(inner_dim, batch_norm),
             Lambda(activation_fn),
-            nn.Linear(inner_dim, out_dim)
-        )
+        ]
+        for _ in range(nhidden):
+            layers.extend([
+                nn.Linear(inner_dim, inner_dim),
+                MaybeBatchNorm(inner_dim, batch_norm),
+                Lambda(activation_fn),
+            ])
+
+        layers.append(nn.Linear(inner_dim, out_dim))
+        # return nn.Sequential(
+        #     nn.Linear(in_dim, inner_dim),
+        #     MaybeBatchNorm(inner_dim, batch_norm),
+        #     Lambda(activation_fn),
+        #     nn.Linear(inner_dim, out_dim)
+        # )
+        return nn.Sequential(*layers)
 
     def _create_project_q(self, cfg, in_dim, out_dim):
         if cfg.target_mlp_context:
             return self._create_mlp(
                 in_dim, in_dim * cfg.mlp_scale, out_dim, cfg.mlp_batch_norm,
-                cfg.mlp_activation
+                cfg.mlp_activation, cfg.mlp_nhidden
             )
         else:
             return nn.Linear(in_dim, out_dim)
@@ -679,6 +694,8 @@ class Wav2Vec2Model(BaseFairseqModel):
             y = self.target_glu(y)
             negs = self.target_glu(negs)
 
+        # TODO: set result["x1"] & result["x2"] before final_proj?
+
         x = self.final_proj(x)
         if x2 is not None:
             x1 = x
@@ -749,15 +766,17 @@ class Wav2Vec2Model(BaseFairseqModel):
         if self.consistency_loss:
             if self.consistency_loss == "l1":
                 diff = (net_output["x1"] - net_output["x2"]) / net_output["x1"].shape[-1]
-                pen.append(torch.norm(diff, p=1, dim=2).sum(1).mean())
+                pen.append(torch.norm(diff, p=1, dim=2).mean(1).mean())
             elif self.consistency_loss == "l2":
                 diff = (net_output["x1"] - net_output["x2"]) / net_output["x1"].shape[-1]
-                pen.append(torch.norm(diff, p=2, dim=2).sum(1).mean())
+                pen.append(torch.norm(diff, p=2, dim=2).mean(1).mean())
             elif self.consistency_loss == "cosine":
                 pen.append(
-                    1 - F.cosine_similarity(net_output["x1"], net_output["x2"], dim=2).sum(1).mean()
+                    1 - F.cosine_similarity(net_output["x1"], net_output["x2"], dim=2).mean(1).mean()
                 )
-            # print("LOSS:", pen)
+            import random
+            if random.random() < 0.01:
+                print("LOSS:", [p.item() for p in pen], net_output["x1"].shape)
         return pen
 
     def remove_pretraining_modules(self):
@@ -825,7 +844,7 @@ class ConvFeatureExtractionModel(nn.Module):
                         Permute(2, 0, 1),
                         LightConvEncoderLayer(cfg_copy, kernel_size=k, stride=1),
                         Permute(1, 2, 0),
-                        # pooling,
+                        pooling,
                     )
                 else:
                     raise ValueError(f"Invalid conv type: {conv_type}")

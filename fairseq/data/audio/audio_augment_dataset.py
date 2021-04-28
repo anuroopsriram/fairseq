@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import librosa
 import numpy as np
 import torch
 from pathlib import Path
@@ -52,7 +53,8 @@ class AudioAugmentDataset(BaseWrapperDataset):
             self, dataset, normalize, split, augmentations,
             reverb_strength, reverb_damping, reverb_room_std, 
             pitch_shift_std, speed_std, snr_min, snr_max,
-            augment_source_prob, augment_target_prob
+            augment_source_prob, augment_target_prob,
+            match_source_target_aug,
     ):
 
         print("AUGMENT DATASET")
@@ -71,6 +73,7 @@ class AudioAugmentDataset(BaseWrapperDataset):
         self.snr_max = snr_max
         self.augment_source_prob = augment_source_prob
         self.augment_target_prob = augment_target_prob
+        self.match_source_target_aug = match_source_target_aug
 
         self.noise_root = Path("/checkpoint/anuroops/data/musan")
         self.noise_files = list(self.noise_root.rglob("*.wav"))
@@ -81,7 +84,8 @@ class AudioAugmentDataset(BaseWrapperDataset):
             if aug == "pitch":
                 effect_chain = effect_chain.pitch("-q", self.random_pitch_shift)
             elif aug == "speed":
-                effect_chain = effect_chain.speed(self.random_speed)
+                # effect_chain = effect_chain.speed(self.random_speed)
+                pass
             elif aug == "reverb":
                 effect_chain = effect_chain.reverb(reverb_strength, reverb_damping,
                                                    self.random_room_size).channels()
@@ -131,6 +135,22 @@ class AudioAugmentDataset(BaseWrapperDataset):
                     snr = np.random.random() * (self.snr_max - self.snr_min) + self.snr_min
                     aug = augment.EffectChain().additive_noise(noise_generator, snr=snr) \
                         .apply(aug, src_info={'rate': 16000}, target_info={'rate': 16000})
+                if "speed" in self.augmentations:
+                    x = aug.numpy()
+                    y = librosa.resample(x, self.random_speed(), 1)
+                    diff = abs(len(x) - len(y))
+                    if len(y) > len(x):
+                        # Truncate noise
+                        y = y[diff // 2 : -((diff + 1) // 2)]
+                    elif len(y) < len(x):
+                        # Assume the time-axis is the first: (Time, Channel)
+                        pad_width = [(diff // 2, (diff + 1) // 2)] + [
+                            (0, 0) for _ in range(y.ndim - 1)
+                        ]
+                        y = np.pad(
+                            y, pad_width=pad_width, constant_values=0, mode="constant"
+                        )
+                    aug = aug.new_tensor(y)
             else:
                 aug = feats
             return _maybe_normalize(aug)
@@ -139,7 +159,10 @@ class AudioAugmentDataset(BaseWrapperDataset):
         source = item["source"]
         item["original_source"] = source
         item["source"] = _maybe_aug(source.clone(), self.augment_source_prob)
-        item["target"] = _maybe_aug(source.clone(), self.augment_target_prob)
+        if self.match_source_target_aug:
+            item["target"] = source.clone()
+        else:
+            item["target"] = _maybe_aug(source.clone(), self.augment_target_prob)
         # print(
         #     "Source:", source.shape, source.abs().sum(),
         #     (source - item["source"]).abs().sum(), 

@@ -2,6 +2,7 @@ import argparse
 import os
 from copy import deepcopy
 from pathlib import Path
+import numpy as np
 
 import submitit
 
@@ -43,7 +44,7 @@ def build_command(args, base_params, data_dir):
     params['save-dir'] = args.logdir / f'{args.name}'  # TODO: get jobid
     params['num-workers'] = args.workers
     params['distributed-world-size'] = args.nodes * args.gpus
-    params['distributed-port'] = args.port
+    params['distributed-port'] = args.port + np.random.randint(2000)
     cmd = ['python', '-u', 'train.py', f'{args.data}/{data_dir}']
     return create_flags(cmd, params)
 

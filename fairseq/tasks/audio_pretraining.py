@@ -103,6 +103,7 @@ class AudioPretrainingConfig(FairseqDataclass):
     reverb_strength: float = field(default=50)
     reverb_damping: float = field(default=50)
     reverb_room_std: float = field(default=30)
+    match_source_target_aug: bool = field(default=False)
 
     tpu: bool = field(default=False)
 
@@ -220,7 +221,7 @@ class AudioPretrainingTask(FairseqTask):
                 self.datasets[split], task_cfg.normalize, split, task_cfg.augmentations,
                 task_cfg.reverb_strength, task_cfg.reverb_damping, task_cfg.reverb_room_std, 
                 task_cfg.pitch_shift_std, task_cfg.speed_std, task_cfg.snr_min, task_cfg.snr_max,
-                task_cfg.augment_source_prob, task_cfg.augment_target_prob
+                task_cfg.augment_source_prob, task_cfg.augment_target_prob, task_cfg.match_source_target_aug
             )
 
     @property

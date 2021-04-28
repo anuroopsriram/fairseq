@@ -1,3 +1,4 @@
+import argparse
 import os
 import re
 from pathlib import Path
@@ -67,6 +68,8 @@ def find_best_params(path, glob):
     import yaml
     
     min_wer, min_params = 1000, {}
+    count = len(list(path.glob(glob)))
+    opt_exists = ((path / glob).parent.parent / "optimization_results.yaml").exists()
     for wer_file in path.glob(glob):
         with open(wer_file) as wf:
             contents = wf.readlines()
@@ -80,7 +83,7 @@ def find_best_params(path, glob):
                     "wordscore": conf["decoder"]["wordscore"],
                     "silweight": conf["decoder"]["silweight"],
                 }
-    return min_wer, min_params                        
+    return min_wer, min_params, count, opt_exists
 
 
 def decode_kenlm(path, data, subset="dev_other", beamsz=1500):
@@ -91,7 +94,7 @@ def decode_kenlm(path, data, subset="dev_other", beamsz=1500):
         path = target
 
     # Find best
-    wer, params = find_best_params(path, "decode/kenlm_ax/dev_other/beam500_*/wer.*")
+    wer, params, _, _ = find_best_params(path, "decode/kenlm_ax/dev_other/beam500_*/wer.*")
     print(wer, params)
     cmd = f"""
     python examples/speech_recognition/hydra/infer.py --multirun 
@@ -119,47 +122,74 @@ def decode_kenlm(path, data, subset="dev_other", beamsz=1500):
     return cmd
 
 
-def w2v_base_mlp_augment_ablation():
+def main(args):
     paths = [
-        # "logs/w2v.base.mlp.augment.4x400.ft/lr0.0005.contextmlpFalse.tgtmlpFalse.bnFalse.actrelu.scale1.do0.1.ld0.05.normFalseaugSrc0.0.augTgt0.0.augsadditive.speed-std0.1.unlab/lr2e-05.mlen10.mprob0.5.do0.1.ngram.lab.10h",
-        # "logs/w2v.base.mlp.augment.4x400.ft/lr0.0005.contextmlpFalse.tgtmlpFalse.bnFalse.actrelu.scale1.do0.1.ld0.05.normFalseaugSrc1.0.augTgt1.0.augsadditive_speed.snr-min8_snr-max15_speed-std0.1.unlab/lr1e-05.mlen10.mprob0.5.do0.1.ngram.lab.10h",
-        # "logs/w2v.base.mlp.augment.4x400.ft/lr0.0005.contextmlpFalse.tgtmlpTrue.bnTrue.actrelu.scale4.do0.1.ld0.05.normFalseaugSrc0.0.augTgt0.0.augsadditive.speed-std0.1.unlab/lr1e-05.mlen10.mprob0.5.do0.1.ngram.lab.10h",
-        # "logs/w2v.base.mlp.augment.4x400.ft/lr0.0005.contextmlpFalse.tgtmlpTrue.bnTrue.actrelu.scale4.do0.1.ld0.05.normFalseaugSrc1.0.augTgt1.0.augsadditive_speed.snr-min8_snr-max15_speed-std0.1.unlab/lr1e-05.mlen10.mprob0.5.do0.1.ngram.lab.10h",
-        # "logs/w2v.base.mlp.augment.4x400.ft/lr0.0005.contextmlpTrue.tgtmlpFalse.bnTrue.actrelu.scale4.do0.1.ld0.05.normFalseaugSrc0.0.augTgt0.0.augsadditive.speed-std0.1.unlab/lr1e-05.mlen10.mprob0.5.do0.1.ngram.lab.10h",
-        # "logs/w2v.base.mlp.augment.4x400.ft/lr0.0005.contextmlpTrue.tgtmlpFalse.bnTrue.actrelu.scale4.do0.1.ld0.05.normFalseaugSrc1.0.augTgt1.0.augsadditive_speed.snr-min8_snr-max15_speed-std0.1.unlab/lr1e-05.mlen10.mprob0.5.do0.1.ngram.lab.10h",
-        # "logs/w2v.base.mlp.augment.4x400.ft/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.1.ld0.05.normFalseaugSrc0.0.augTgt0.0.augsadditive.speed-std0.1.unlab/lr1e-05.mlen10.mprob0.5.do0.1.ngram.lab.10h",
-        # "logs/w2v.base.mlp.augment.4x400.ft/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.1.ld0.05.normFalseaugSrc1.0.augTgt1.0.augsadditive_speed.snr-min8_snr-max15_speed-std0.1.unlab/lr1e-05.mlen10.mprob0.5.do0.1.ngram.lab.10h",
-    
-        # "logs/w2v.base.mlp.augment.4x400.ft/lr0.0005.contextmlpFalse.tgtmlpFalse.bnFalse.actrelu.scale1.do0.1.ld0.05.normFalseaugSrc0.0.augTgt0.0.augsadditive.speed-std0.1.unlab/lr5e-05.mlen10.mprob0.65.ngram.1nd.lab.10h",
-        # "logs/w2v.base.mlp.augment.4x400.ft/lr0.0005.contextmlpFalse.tgtmlpTrue.bnTrue.actrelu.scale4.do0.1.ld0.05.normFalseaugSrc0.0.augTgt0.0.augsadditive.speed-std0.1.unlab/lr5e-05.mlen8.mprob0.65.ngram.1nd.lab.10h",
-        # "logs/w2v.base.mlp.augment.4x400.ft/lr0.0005.contextmlpTrue.tgtmlpFalse.bnTrue.actrelu.scale4.do0.1.ld0.05.normFalseaugSrc0.0.augTgt0.0.augsadditive.speed-std0.1.unlab/lr5e-05.mlen12.mprob0.65.ngram.1nd.lab.10h",
-        # "logs/w2v.base.mlp.augment.4x400.ft/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.1.ld0.05.normFalseaugSrc0.0.augTgt0.0.augsadditive.speed-std0.1.unlab/lr2e-05.mlen10.mprob0.65.ngram.1nd.lab.10h",
+        # "logs/ablation.aug.ls960h.3x400.ft/ls960h.add8.15lr0.0005.ls960h/lab.1h.lr3e-05.mlen10.mprob0.65.do0.1.lab.1h",
+        # "logs/ablation.aug.ls960h.3x400.ft/ls960h.noauglr0.0005.ls960h/lab.1h.lr5e-05.mlen10.mprob0.65.do0.1.lab.1h",
 
-        # "logs/w2v.base.mlp.augment.4x400.ft/lr0.0005.contextmlpFalse.tgtmlpFalse.bnFalse.actrelu.scale1.do0.1.ld0.05.normFalseaugSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.1.unlab/lr5e-05.mlen10.mprob0.65.ngram.1nd.lab.10h",
-        # "logs/w2v.base.mlp.augment.4x400.ft/lr0.0005.contextmlpFalse.tgtmlpTrue.bnTrue.actrelu.scale4.do0.1.ld0.05.normFalseaugSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.1.unlab/lr5e-05.mlen10.mprob0.65.ngram.1nd.lab.10h",
-        # "logs/w2v.base.mlp.augment.4x400.ft/lr0.0005.contextmlpTrue.tgtmlpFalse.bnTrue.actrelu.scale4.do0.1.ld0.05.normFalseaugSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.1.unlab/lr5e-05.mlen8.mprob0.65.ngram.1nd.lab.10h",
-        # "logs/w2v.base.mlp.augment.4x400.ft/lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.1.ld0.05.normFalseaugSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.1.unlab/lr5e-05.mlen8.mprob0.65.ngram.1nd.lab.10h",
+        # "logs/ablation.aug.ls960h.3x400.ft/ls960h.add8.15lr0.0005.ls960h/lab.100h.lr3e-05.mlen10.mprob0.45.do0.1.lab.100h",
+        # "logs/ablation.aug.ls960h.3x400.ft/ls960h.noauglr0.0005.ls960h/lab.100h.lr3e-05.mlen10.mprob0.65.do0.1.lab.100h",
 
-        # "lr0.0005.contextmlpFalse.tgtmlpTrue.bnTrue.actrelu.scale4.do0.1.ld0.05.normFalseaugSrc1.0.augTgt1.0.augsadditive_speed.snr-min8_snr-max15_speed-std0.1.unlab/lr1e-05.mlen10.mprob0.5.do0.1.ngram.lab.10h",
-        # "lr0.0005.contextmlpTrue.tgtmlpFalse.bnTrue.actrelu.scale4.do0.1.ld0.05.normFalseaugSrc1.0.augTgt1.0.augsadditive_speed.snr-min8_snr-max15_speed-std0.1.unlab/lr1e-05.mlen10.mprob0.5.do0.1.ngram.lab.10h",
-        # "lr0.0005.contextmlpTrue.tgtmlpTrue.bnTrue.actrelu.scale4.do0.1.ld0.05.normFalseaugSrc1.0.augTgt1.0.augsadditive_speed.snr-min8_snr-max15_speed-std0.1.unlab/lr1e-05.mlen10.mprob0.5.do0.1.ngram.lab.10h",
+        # "logs/ablation.mlp.ls960h.3x400.ft/lr0.0005.cmlpTrue.tmlpTrue.bnTrue.actrelu.scale4.nhid0.unlab/lab.100h.lr3e-05.mlen10.mprob0.45.do0.1.lab.100h",
+        # "logs/ablation.mlp.ls960h.3x400.ft/lr0.0005.cmlpTrue.tmlpTrue.bnTrue.actrelu.scale4.nhid1.unlab/lab.100h.lr3e-05.mlen10.mprob0.45.do0.1.lab.100h",
+        # "logs/ablation.mlp.ls960h.3x400.ft/lr0.0005.cmlpTrue.tmlpTrue.bnTrue.actrelu.scale4.nhid2.unlab/lab.100h.lr3e-05.mlen10.mprob0.45.do0.1.lab.100h",
+        # "logs/ablation.mlp.ls960h.3x400.ft/lr0.0005.cmlpTrue.tmlpTrue.bnTrue.actrelu.scale4.nhid0.unlab/lab.1h.lr3e-05.mlen10.mprob0.65.do0.1.lab.1h",
+        # "logs/ablation.mlp.ls960h.3x400.ft/lr0.0005.cmlpTrue.tmlpTrue.bnTrue.actrelu.scale4.nhid1.unlab/lab.1h.lr3e-05.mlen10.mprob0.65.do0.1.lab.1h",
+        # "logs/ablation.mlp.ls960h.3x400.ft/lr0.0005.cmlpTrue.tmlpTrue.bnTrue.actrelu.scale4.nhid2.unlab/lab.1h.lr3e-05.mlen10.mprob0.65.do0.1.lab.1h",
 
-        # "logs/w2v.base.mlp.augment.4x400.ft100/lr0.0005.contextmlpFalse.tgtmlpTrue.bnTrue.actrelu.scale4.do0.1.ld0.05.normFalseaugSrc1.0.augTgt1.0.augsadditive,speed.snr-min8_snr-max15_speed-std0.1.unlab/lr3e-05.mlen10.mprob0.45.do0.1.ngram.lab.100h",
-        # "logs/w2v.base.glu.4x400.ft100/geglu.lr0.0005.unlab/lr2e-05.mlen10.mprob0.45.ngram.1nd.lab.100h",
-        "logs/w2v.base.glu.4x400.ft100/geglu.lr0.001.unlab/lr2e-05.mlen10.mprob0.45.ngram.1nd.lab.100h",
+        # "logs/ablation.aug.ls100h.3x200.ft/ls100h.add8.15lr0.0005.ls100h/lab.1h.lr3e-05.mlen10.mprob0.65.do0.1.lab.1h",
+        # "logs/ablation.aug.ls100h.3x200.ft/ls100h.noauglr0.0005.ls100h/lab.1h.lr3e-05.mlen10.mprob0.65.do0.1.lab.1h",
+        # "logs/ablation.aug.ls100h.3x200.ft/ls100h.add8.15lr0.0005.ls100h/lab.100h.lr3e-05.mlen10.mprob0.65.do0.1.lab.100h",
+        # "logs/ablation.aug.ls100h.3x200.ft/ls100h.noauglr0.0005.ls100h/lab.100h.lr3e-05.mlen10.mprob0.65.do0.1.lab.100h",
+
+        # "logs/ablation.aug.ls400h.3x300.ft/ls400h.add8.15lr0.0005.ls400h/lab.100h.lr3e-05.mlen10.mprob0.65.do0.1.lab.100h",
+        # "logs/ablation.aug.ls400h.3x300.ft/ls400h.noauglr0.0005.ls400h/lab.100h.lr5e-05.mlen10.mprob0.65.do0.1.lab.100h",
+        # "logs/ablation.aug.ls400h.3x300.ft/ls400h.add8.15lr0.0005.ls400h/lab.1h.lr3e-05.mlen10.mprob0.65.do0.1.lab.1h",
+        # "logs/ablation.aug.ls400h.3x300.ft/ls400h.noauglr0.0005.ls400h/lab.1h.lr5e-05.mlen10.mprob0.65.do0.1.lab.1h",
+
+        # "logs/ablation.baseline.ls960h.8x400.ft/ls960h.baselinelr0.0005.ls960h/lab.1h.lr3e-05.mlen10.mprob0.65.do0.1.lab.1h",
+        # "logs/ablation.baseline.ls960h.8x400.ft/ls960h.baselinelr0.0005.ls960h/lab.100h.lr3e-05.mlen10.mprob0.45.do0.1.lab.100h",
+
+        # "logs/ablation.conf.ls960h.3x400.ft/ls960h.conf.lr0.0005.ks3.normbatchnorm.ls960h/lab.1h.lr3e-05.mlen10.mprob0.65.do0.1.lab.1h",
+        # "logs/ablation.conf.ls960h.3x400.ft/ls960h.conf.lr0.0005.ks3.normlayernorm.ls960h/lab.100h.lr3e-05.mlen10.mprob0.65.do0.1.lab.100h",
+        # "logs/ablation.conf.ls960h.3x400.ft/ls960h.conf_rp.lr0.0005.ks3.normlayernorm.ls960h/lab.1h.lr5e-05.mlen10.mprob0.45.do0.1.lab.1h",
+
+        # "logs/ablation.aug.ls50h.3x200.ft/ls50h.noauglr0.0005.ls50h/lab.1h.lr3e-05.mlen10.mprob0.45.do0.1.lab.1h",
+        # "logs/ablation.aug.ls50h.3x200.ft/ls50h.add8.15lr0.0005.ls50h/lab.1h.lr3e-05.mlen10.mprob0.45.do0.1.lab.1h",
+        # "logs/ablation.aug.ls50h.3x200.ft/ls50h.add8.15lr0.0005.ls50h/lab.100h.lr3e-05.mlen10.mprob0.65.do0.1.lab.100h",
+        # "logs/ablation.aug.ls50h.3x200.ft/ls50h.noauglr0.0005.ls50h/lab.100h.lr5e-05.mlen10.mprob0.65.do0.1.lab.100h",
+
+        # "logs/ablation.aug.ls100h.3x200.ft/ls100h.sameaug.add8.15lr0.0005.ls100h/lab.1h.lr3e-05.mlen10.mprob0.65.do0.1.lab.1h",
+        # "logs/ablation.aug.ls100h.3x200.ft/ls100h.sameaug.add8.15lr0.0005.ls100h/lab.100h.lr3e-05.mlen10.mprob0.65.do0.1.lab.100h",
+
+        # "logs/ablation.lconv.ls960h.3x400.ft/ls960h.lc_last2.lr0.0005.moddo0.1.ls960h/lab.100h.lr3e-05.mlen10.mprob0.65.do0.1.lab.100h",
+        # "logs/ablation.lconv.ls960h.3x400.ft/ls960h.dc_last2.lr0.0005.moddo0.1.ls960h/lab.100h.lr3e-05.mlen10.mprob0.45.do0.1.lab.100h",
+        # "logs/ablation.lconv.ls960h.3x400.ft/ls960h.dc_last2.lr0.0005.moddo0.1.ls960h/lab.1h.lr3e-05.mlen10.mprob0.65.do0.1.lab.1h",
+        # "logs/ablation.lconv.ls960h.3x400.ft/ls960h.lc_last2.lr0.0005.moddefault.ls960h/lab.1h.lr3e-05.mlen10.mprob0.65.do0.1.lab.1h",
     ]
     data = "/checkpoint/anuroops/data/libris/lab.960h"
     for path in paths:
-        cmd = search_kenlm(path, data)
-        # cmd = decode_kenlm(path, data)
-        print(cmd)
-        os.system(cmd + " &")
-        # cmd = decode_viterbi(path, data)
-        # os.system(cmd)
+        if args.task == "search":
+            cmd = search_kenlm(path, data)
+            os.system(cmd + " &")
+        elif args.task == "viterbi":
+            cmd = decode_viterbi(path, data)
+            os.system(cmd)
+        elif args.task == "beam":
+            cmd = decode_kenlm(path, data)
+            os.system(cmd + " &")
+        elif args.task == "searchres":
+            wer, params, count, opt_exists = find_best_params(Path(path), "decode/kenlm_ax/dev_other/beam500_*/wer.*")
+            print(path)
+            print(wer, count, opt_exists, params)
+        elif args.task == "beamres":
+            wer, params, _, _ = find_best_params(Path(path), "decode/kenlm.1500/dev_other/beam1500_*/wer.*")
+            print(path)
+            print(wer, params)
 
 
 if __name__ == "__main__":
-    w2v_base_mlp_augment_ablation()
-
-
-#for d in *additive,speed*; do d2=`echo $d | sed "s/,/_/g"`; echo $d2; mv $d $d2; done 
+    parser = argparse.ArgumentParser()
+    parser.add_argument('task', choices=["search", "viterbi", "beam", "searchres", "beamres"])
+    args = parser.parse_args()
+    main(args)

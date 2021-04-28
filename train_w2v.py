@@ -58,7 +58,7 @@ base_params = {
 def w2v_base(base_args):
     lrs = [5e-4]
     run_args_list = [
-        dict(name="w2v.base.2x100", updates=100_000, nodes=2, update_freq=1),
+        dict(name="w2v.base.8x400", updates=400_000, nodes=8, update_freq=1),
     ]
     for run_args in run_args_list:
         param_sweeps = [
@@ -69,10 +69,39 @@ def w2v_base(base_args):
                     "total-num-update": run_args["updates"],
                     "max-update": run_args["updates"],
                     "update-freq": run_args["update_freq"],
+                },
+            )
+            for lr in lrs
+        ]
+        args = deepcopy(base_args)
+        args.name = args.name or run_args["name"]
+        args.nodes = run_args["nodes"]
+        submit.run_sweeps(args, base_params, param_sweeps)
+
+
+@submit.register_sweep
+def w2v_base_lb(base_args):
+    lrs = [5e-4]
+    run_args_list = [
+        # dict(name="w2v.base.2x100", updates=100_000, nodes=2, update_freq=1),
+        dict(name="w2v.baselb.3x400", updates=400_000, nodes=3, update_freq=1),
+    ]
+    for run_args in run_args_list:
+        param_sweeps = [
+            (
+                f"lr{lr}.tok4M",
+                {
+                    "lr": lr,
+                    "total-num-update": run_args["updates"],
+                    "max-update": run_args["updates"],
+                    "update-freq": run_args["update_freq"],
 
                     "ddp-backend": "fully_sharded",
-                    # "cpu-offload": True,
                     "no-reshard-after-forward": True,
+                    'max-tokens': 4_000_000,
+                    # 'max-tokens': 4_000_000,
+                    # "cpu-offload": True,
+                    # 'optimizer': 'cpu_adam',
                 },
             )
             for lr in lrs
@@ -315,40 +344,48 @@ def w2v_base_augment_100h(base_args):
     run_args_list = [
         dict(name="w2v.base.augment.2x100.100h", updates=100_000, nodes=2),
     ]
+    dsets = [
+        # "ls50h",
+        "ls100h",
+        # "ls200h",
+        "ls400h",
+        "ls960h",
+    ]
     for run_args in run_args_list:
-        param_sweeps = [
-            (
+        for dset in dsets:
+            param_sweeps = [
                 (
-                    f"{name}.lr{lr}.do{do}.ld{ld}"
-                ),
-                {
-                    "lr": lr,
-                    "total-num-update": run_args["updates"],
-                    "max-update": run_args["updates"],
-                    "update-freq": 1,
-                    
-                    "augment-audio": augment,
-                    "augmentations": augmentations,
-                    'augment-source-prob': augSrcProb,
-                    'augment-target-prob': augTgtProb,
-                    "normalize": False,
+                    (
+                        f"{name}.lr{lr}.do{do}.ld{ld}.dset{dset}"
+                    ),
+                    {
+                        "lr": lr,
+                        "total-num-update": run_args["updates"],
+                        "max-update": run_args["updates"],
+                        "update-freq": 1,
+                        
+                        "augment-audio": augment,
+                        "augmentations": augmentations,
+                        'augment-source-prob': augSrcProb,
+                        'augment-target-prob': augTgtProb,
+                        "normalize": False,
 
-                    "dropout-input": do,
-                    "dropout-features": do,
-                    "dropout": do,
-                    "encoder-layerdrop": ld,
+                        "dropout-input": do,
+                        "dropout-features": do,
+                        "dropout": do,
+                        "encoder-layerdrop": ld,
 
-                    **augParams
-                },
-            )
-            for augment, augmentations, augSrcProb, augTgtProb, augParams, name in augment_params
-            for lr in lrs
-            for do, ld in drop_params
-        ]
-        args = deepcopy(base_args)
-        args.name = args.name or run_args["name"]
-        args.nodes = run_args["nodes"]
-        submit.run_sweeps(args, base_params, param_sweeps, dataset='unlab.100')
+                        **augParams
+                    },
+                )
+                for augment, augmentations, augSrcProb, augTgtProb, augParams, name in augment_params
+                for lr in lrs
+                for do, ld in drop_params
+            ]
+            args = deepcopy(base_args)
+            args.name = args.name or run_args["name"]
+            args.nodes = run_args["nodes"]
+            submit.run_sweeps(args, base_params, param_sweeps, dataset=dset)
 
 
 @submit.register_sweep

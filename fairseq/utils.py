@@ -527,6 +527,8 @@ def get_activation_fn(activation: str) -> Callable:
             "--activation-fn=gelu_fast has been renamed to gelu_accurate"
         )
         return gelu_accurate
+    elif activation == "glu":
+        return F.glu
     elif activation == "gelu_accurate":
         return gelu_accurate
     elif activation == "tanh":
@@ -548,6 +550,7 @@ def get_available_activation_fns() -> List:
         "tanh",
         "linear",
         "swish",
+        "glu"
     ]
 
 

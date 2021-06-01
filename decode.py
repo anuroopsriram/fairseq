@@ -166,6 +166,7 @@ def main(args):
         # "logs/ablation.lconv.ls960h.3x400.ft/ls960h.dc_last2.lr0.0005.moddo0.1.ls960h/lab.100h.lr3e-05.mlen10.mprob0.45.do0.1.lab.100h",
         # "logs/ablation.lconv.ls960h.3x400.ft/ls960h.dc_last2.lr0.0005.moddo0.1.ls960h/lab.1h.lr3e-05.mlen10.mprob0.65.do0.1.lab.1h",
         # "logs/ablation.lconv.ls960h.3x400.ft/ls960h.lc_last2.lr0.0005.moddefault.ls960h/lab.1h.lr3e-05.mlen10.mprob0.65.do0.1.lab.1h",
+        "logs/ablation.conf.ls960h.3x400.ft/ls960h.conf_rp.lr0.0005.ks3.normlayernorm.ls960h/lab.100h.lr3e-05.mlen10.mprob0.65.do0.1.lab.100h",
     ]
     data = "/checkpoint/anuroops/data/libris/lab.960h"
     for path in paths:

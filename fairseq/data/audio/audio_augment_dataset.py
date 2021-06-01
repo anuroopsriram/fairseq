@@ -3,7 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import librosa
+# import librosa
 import numpy as np
 import torch
 from pathlib import Path
@@ -26,17 +26,21 @@ class ChainRunner:
         x: torch.Tensor, (channels, length). Must be placed on CPU.
         """
         x = x.view(1, -1)
-        src_info = {'channels': x.size(0),  # number of channels
-                    'length': x.size(1),  # length of the sequence
-                    'precision': 32,  # precision (16, 32 bits)
-                    'rate': 16000.0,  # sampling rate
-                    'bits_per_sample': 32}  # size of the sample
+        src_info = {
+            'channels': x.size(0),  # number of channels
+            'length': x.size(1),  # length of the sequence
+            'precision': 32,  # precision (16, 32 bits)
+            'rate': 16000.0,  # sampling rate
+            'bits_per_sample': 32
+        }
 
-        target_info = {'channels': 1,
-                       'length': x.size(1),
-                       'precision': 32,
-                       'rate': 16000.0,
-                       'bits_per_sample': 32}
+        target_info = {
+            'channels': 1,
+            'length': x.size(1),
+            'precision': 32,
+            'rate': 16000.0,
+            'bits_per_sample': 32
+        }
 
         y = self.chain.apply(x, src_info=src_info, target_info=target_info)
 
@@ -84,8 +88,7 @@ class AudioAugmentDataset(BaseWrapperDataset):
             if aug == "pitch":
                 effect_chain = effect_chain.pitch("-q", self.random_pitch_shift)
             elif aug == "speed":
-                # effect_chain = effect_chain.speed(self.random_speed)
-                pass
+                effect_chain = effect_chain.speed(self.random_speed)
             elif aug == "reverb":
                 effect_chain = effect_chain.reverb(reverb_strength, reverb_damping,
                                                    self.random_room_size).channels()
@@ -93,13 +96,15 @@ class AudioAugmentDataset(BaseWrapperDataset):
                 pass
             else:
                 raise NotImplementedError(f"Unknown augmentation: {aug}")
+        effect_chain = effect_chain.rate(16_000)
         self.runner = ChainRunner(effect_chain)
 
     def random_pitch_shift(self):
         return np.random.randn() * self.pitch_shift_std
 
     def random_speed(self):
-        rand = min(max(-3, np.random.randn()), 3)
+        rand = np.clip(np.random.randn(), -3, 3)
+        # rand = min(max(-3, np.random.randn()), 3)
         return max(1. + rand * self.speed_std, 0.1)
 
     def random_room_size(self):
@@ -135,22 +140,22 @@ class AudioAugmentDataset(BaseWrapperDataset):
                     snr = np.random.random() * (self.snr_max - self.snr_min) + self.snr_min
                     aug = augment.EffectChain().additive_noise(noise_generator, snr=snr) \
                         .apply(aug, src_info={'rate': 16000}, target_info={'rate': 16000})
-                if "speed" in self.augmentations:
-                    x = aug.numpy()
-                    y = librosa.resample(x, self.random_speed(), 1)
-                    diff = abs(len(x) - len(y))
-                    if len(y) > len(x):
-                        # Truncate noise
-                        y = y[diff // 2 : -((diff + 1) // 2)]
-                    elif len(y) < len(x):
-                        # Assume the time-axis is the first: (Time, Channel)
-                        pad_width = [(diff // 2, (diff + 1) // 2)] + [
-                            (0, 0) for _ in range(y.ndim - 1)
-                        ]
-                        y = np.pad(
-                            y, pad_width=pad_width, constant_values=0, mode="constant"
-                        )
-                    aug = aug.new_tensor(y)
+                # if "speed" in self.augmentations:
+                #     x = aug.numpy()
+                #     y = librosa.resample(x, self.random_speed(), 1)
+                #     diff = abs(len(x) - len(y))
+                #     if len(y) > len(x):
+                #         # Truncate noise
+                #         y = y[diff // 2 : -((diff + 1) // 2)]
+                #     elif len(y) < len(x):
+                #         # Assume the time-axis is the first: (Time, Channel)
+                #         pad_width = [(diff // 2, (diff + 1) // 2)] + [
+                #             (0, 0) for _ in range(y.ndim - 1)
+                #         ]
+                #         y = np.pad(
+                #             y, pad_width=pad_width, constant_values=0, mode="constant"
+                #         )
+                #     aug = aug.new_tensor(y)
             else:
                 aug = feats
             return _maybe_normalize(aug)

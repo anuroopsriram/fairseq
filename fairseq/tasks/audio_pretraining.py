@@ -5,7 +5,6 @@
 # the root directory of this source tree. An additional grant of patent rights
 # can be found in the PATENTS file in the same directory.
 
-from fairseq.data.audio.audio_augment_dataset import AudioAugmentDataset
 import logging
 import os
 import sys
@@ -101,7 +100,9 @@ class AudioPretrainingConfig(FairseqDataclass):
     pitch_shift_std: float = field(default=100)
     speed_std: float = field(default=0.1)
     reverb_strength: float = field(default=50)
+    reverb_strength_std: float = field(default=20)
     reverb_damping: float = field(default=50)
+    reverb_room: float = field(default=50)
     reverb_room_std: float = field(default=30)
     match_source_target_aug: bool = field(default=False)
 
@@ -217,11 +218,19 @@ class AudioPretrainingTask(FairseqTask):
                 add_to_input=task_cfg.get('autoregressive', False),
             )
         if task_cfg.augment_audio:
-            self.datasets[split] = AudioAugmentDataset(
-                self.datasets[split], task_cfg.normalize, split, task_cfg.augmentations,
-                task_cfg.reverb_strength, task_cfg.reverb_damping, task_cfg.reverb_room_std, 
-                task_cfg.pitch_shift_std, task_cfg.speed_std, task_cfg.snr_min, task_cfg.snr_max,
-                task_cfg.augment_source_prob, task_cfg.augment_target_prob, task_cfg.match_source_target_aug
+            # from fairseq.data.audio.audio_augment_dataset import AudioAugmentDataset
+            # self.datasets[split] = AudioAugmentDataset(
+            #     self.datasets[split], task_cfg.normalize, split, task_cfg.augmentations,
+            #     task_cfg.reverb_strength, task_cfg.reverb_damping, task_cfg.reverb_room_std, 
+            #     task_cfg.pitch_shift_std, task_cfg.speed_std, task_cfg.snr_min, task_cfg.snr_max,
+            #     task_cfg.augment_source_prob, task_cfg.augment_target_prob, task_cfg.match_source_target_aug
+            # )
+            from fairseq.data.audio.audio_augment import AudioAugmentData
+            self.datasets[split] = AudioAugmentData(
+                self.datasets[split], task_cfg.normalize, split, task_cfg.augmentations, 
+                task_cfg.augment_source_prob, task_cfg.augment_target_prob, task_cfg.match_source_target_aug,
+                task_cfg.get('sample_rate', self.cfg.sample_rate), task_cfg.pitch_shift_std, task_cfg.speed_std,
+                task_cfg.reverb_strength_std, task_cfg.reverb_damping, task_cfg.reverb_room, task_cfg.snr_min, task_cfg.snr_max
             )
 
     @property

@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+from benchmark import Timer
 from torch.nn.modules.linear import Identity
 from fairseq.models.lightconv import LightConvEncoderLayer
 from fairseq.modules.relative_positional_attention import RelativePositionalMultiHeadAttention
@@ -42,12 +43,13 @@ CONSISTENCY_LOSS_CHOICES = ChoiceEnum(["l2", "l1", "cosine"])
 
 
 class Lambda(nn.Module):
-    def __init__(self, func):
+    def __init__(self, func, **kwargs):
         super().__init__()
         self.func = func
+        self.kwargs = kwargs
 
     def forward(self, x):
-        return self.func(x)
+        return self.func(x, **self.kwargs)
 
     def __repr__(self):
         return f"Lambda({self.func})"
@@ -59,7 +61,8 @@ class Permute(nn.Module):
         self.dims = dims
 
     def forward(self, x):
-        return x.permute(*self.dims)  # .contiguous()
+        # return x.permute(*self.dims).contiguous()
+        return x.permute(*self.dims)
 
     def __repr__(self):
         return f"Permute({self.dims})"
@@ -584,7 +587,7 @@ class Wav2Vec2Model(BaseFairseqModel):
 
 
     def forward(self, source, padding_mask=None, mask=True, features_only=False, target=None):
-        if self.consistency_loss:
+        if self.consistency_loss and not features_only:
             assert target is not None
 
         features, features_pen = self.compute_features(source, self.feature_grad_mult)
@@ -631,6 +634,7 @@ class Wav2Vec2Model(BaseFairseqModel):
                 x, mask_indices = self.apply_mask(features, padding_mask)
                 x2 = None
             if mask_indices is not None:
+                # print(unmasked_features.shape, mask_indices.shape, unmasked_features[mask_indices].shape)
                 y = unmasked_features[mask_indices].view(
                     unmasked_features.size(0), -1, unmasked_features.size(-1)
                 )
@@ -1200,28 +1204,37 @@ class ConformerEncoderLayer(nn.Module):
                     self_attention=True,
                 )
             self.self_attn_dropout = nn.Dropout(dropout)
+
+        hidden_dim = embedding_dim * 2
+        kwargs = {}
+        if activation_fn2 == "glu":
+            hidden_dim = embedding_dim
+            kwargs = dict(dim=1)
+
         assert norm in ("batchnorm", "layernorm")
-        norm = nn.BatchNorm1d(embedding_dim * 2) if norm == "batchnorm" else (
+        norm = nn.BatchNorm1d(hidden_dim) if norm == "batchnorm" else (
             nn.Sequential(
                 Permute(0, 2, 1),
-                nn.LayerNorm(embedding_dim * 2),
+                nn.LayerNorm(hidden_dim),
                 Permute(0, 2, 1),
             )
         )
+
         self.conv = nn.Sequential(
             nn.LayerNorm(embedding_dim),
             Permute(1, 2, 0),  # T x B x C -> B x C x T
             nn.Conv1d(embedding_dim, embedding_dim * 2, kernel_size=1),
-            Lambda(self.activation_fn2),
-            nn.Conv1d(embedding_dim * 2, embedding_dim * 2, kern_size,
+            Lambda(self.activation_fn2, **kwargs),
+            nn.Conv1d(hidden_dim, hidden_dim, kern_size,
                       groups=embedding_dim, padding=pad),
             SamePad(kern_size),
             norm,
             Lambda(self.activation_fn1),
-            nn.Conv1d(embedding_dim * 2, embedding_dim, kernel_size=1),
+            nn.Conv1d(hidden_dim, embedding_dim, kernel_size=1),
             nn.Dropout(dropout),
             Permute(2, 0, 1),  # B x C x T -> T x B x C
         )
+
         self.ff2 = nn.Sequential(
             nn.LayerNorm(embedding_dim),
             nn.Linear(embedding_dim, embedding_dim_expand),

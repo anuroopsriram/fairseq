@@ -98,8 +98,6 @@ def w2v_base_augment_small(base_args):
         # (augment, augmentations, augSrcProb, augTgtProb, augParams)
         "noaug": (False, "additive,speed", 1., 1., {"snr-min": 8, "snr-max": 15, "speed-std": 0.1}),
         "add8.15": (True, "additive", 1., 1., {"snr-min": 8, "snr-max": 15, "speed-std": 0.1}),
-        # "add8.15_spd0.1": (True, "additive,speed", 1., 1., {"snr-min": 8, "snr-max": 15, "speed-std": 0.1}),
-        # "add8.15_spd0.15": (True, "additive,speed", 1., 1., {"snr-min": 8, "snr-max": 15, "speed-std": 0.15}),
     }
     run_args_list = {
         "ls10h": dict(name="ablation.aug.50M.ls10h.3x100", updates=100_000, nodes=3, update_freq=1),
@@ -143,13 +141,46 @@ def w2v_base_augment(base_args):
     ]
     augment_params = {
         # (augment, augmentations, augSrcProb, augTgtProb, augParams)
-        "noaug": (False, "additive,speed", 1., 1., {"snr-min": 8, "snr-max": 15, "speed-std": 0.1}),
-        "add8.15": (True, "additive", 1., 1., {"snr-min": 8, "snr-max": 15, "speed-std": 0.1}),
+        # "noaug": (False, "additive,speed", 1., 1., {"snr-min": 8, "snr-max": 15, "speed-std": 0.1}),
+        # "add8.15": (True, "additive", 1., 1., {"snr-min": 8, "snr-max": 15, "speed-std": 0.1}),
         # "add8.15_spd0.1": (True, "additive,speed", 1., 1., {"snr-min": 8, "snr-max": 15, "speed-std": 0.1}),
         # "add8.15_spd0.15": (True, "additive,speed", 1., 1., {"snr-min": 8, "snr-max": 15, "speed-std": 0.15}),
+
+        # "spd0.05": (True, "speed", 1., 1., {"speed-std": 0.05}),
+        # "spd0.10": (True, "speed", 1., 1., {"speed-std": 0.10}),
+        # "spd0.15": (True, "speed", 1., 1., {"speed-std": 0.15}),
+        # "pitch20": (True, "pitch", 1., 1., {"pitch-shift-std": 20}),
+        # "pitch50": (True, "pitch", 1., 1., {"pitch-shift-std": 50}),
+        # "pitch100": (True, "pitch", 1., 1., {"pitch-shift-std": 100}),
+        # "reverb10": (True, "reverb", 1., 1., {"reverb-strength-std": 10, "reverb-damping": 50, "reverb-room": 50}),
+        # "reverb25": (True, "reverb", 1., 1., {"reverb-strength-std": 25, "reverb-damping": 50, "reverb-room": 50}),
+        # "reverb60": (True, "reverb", 1., 1., {"reverb-strength-std": 60, "reverb-damping": 50, "reverb-room": 50}),
+
+        # "a8.15.p50.r25_p0.1": (True, "additive,pitch,reverb", 0.1, 0.1, 
+        #                             {"snr-min": 8, "snr-max": 15, "pitch-shift-std": 50, "reverb-strength-std": 25,
+        #                              "reverb-damping": 50, "reverb-room": 50}),
+        # "a8.15.p50.r25_p0.3": (True, "additive,pitch,reverb", 0.3, 0.3, 
+        #                             {"snr-min": 8, "snr-max": 15, "pitch-shift-std": 50, "reverb-strength-std": 25,
+        #                              "reverb-damping": 50, "reverb-room": 50}),
+        # "a8.15.p50.r25_p0.5": (True, "additive,pitch,reverb", 0.5, 0.5, 
+        #                             {"snr-min": 8, "snr-max": 15, "pitch-shift-std": 50, "reverb-strength-std": 25,
+        #                              "reverb-damping": 50, "reverb-room": 50}),
+        "a8.15.p50.r25_p0.75": (True, "additive,pitch,reverb", 0.5, 0.5, 
+                                    {"snr-min": 8, "snr-max": 15, "pitch-shift-std": 50, "reverb-strength-std": 25,
+                                     "reverb-damping": 50, "reverb-room": 50}),
+
+        # "a8.15.s0.1.p50.r25_p0.1": (True, "additive,speed,pitch,reverb", 0.1, 0.1, 
+        #                             {"snr-min": 8, "snr-max": 15, "speed-std": 0.1, "pitch-shift-std": 50,
+        #                              "reverb-strength-std": 25, "reverb-damping": 50, "reverb-room": 50}),
+        # "a8.15.s0.1.p50.r25_p0.3": (True, "additive,speed,pitch,reverb", 0.3, 0.3, 
+        #                             {"snr-min": 8, "snr-max": 15, "speed-std": 0.1, "pitch-shift-std": 50,
+        #                              "reverb-strength-std": 25, "reverb-damping": 50, "reverb-room": 50}),
+        # "a8.15.s0.1.p50.r25_p0.6": (True, "additive,speed,pitch,reverb", 0.6, 0.6,
+        #                             {"snr-min": 8, "snr-max": 15, "speed-std": 0.1, "pitch-shift-std": 50,
+        #                              "reverb-strength-std": 25, "reverb-damping": 50, "reverb-room": 50}),
     }
     run_args_list = {
-        "ls10h": dict(name="ablation.aug.ls10h.3x100", updates=100_000, nodes=3, update_freq=1),
+        # "ls10h": dict(name="ablation.aug.ls10h.3x100", updates=100_000, nodes=3, update_freq=1),
         "ls50h": dict(name="ablation.aug.ls50h.3x150", updates=150_000, nodes=3, update_freq=1),
         # "ls100h": dict(name="ablation.aug.ls100h.3x200", updates=200_000, nodes=3, update_freq=1),
         # "ls400h": dict(name="ablation.aug.ls400h.3x300", updates=300_000, nodes=3, update_freq=1),
@@ -164,8 +195,8 @@ def w2v_base_augment(base_args):
                     "lr": lr,
                     "total-num-update": run_args["updates"],
                     "max-update": run_args["updates"],
-                    "update-freq": 1,
-                    
+                    "update-freq": run_args["update_freq"],
+
                     "augment-audio": augment,
                     "augmentations": augmentations,
                     'augment-source-prob': augSrcProb,
@@ -365,6 +396,58 @@ def w2v_base_conf(base_args):
                     # 'encoder-embed-dim': 448,
                     'encoder-attention-heads': 8,
                     "conformer-norm": norm,
+                },
+            )
+            for lr in lrs
+            for name, trans_type in trans_types.items()
+            for kern_sz in kern_sizes
+            for norm in norms
+        ]
+        args = deepcopy(base_args)
+        args.name = args.name or run_args["name"]
+        args.nodes = run_args["nodes"]
+        submit.run_sweeps(args, base_params, param_sweeps, dataset=dset)
+
+
+@submit.register_sweep
+def w2v_base_conf2(base_args):
+    lrs = [
+        # 2e-4,
+        5e-4,
+    ]
+    run_args_list = {
+        "ls960h": dict(name="ablation.conf.ls960h.3x400", updates=400_000, nodes=3, update_freq=1),
+    }
+
+    num_layers = 14
+    trans_types = {
+        # "conf2": ",".join(["conf" for _ in range(num_layers)]),
+        "conf_rp2": ",".join(["conf_relpos" for _ in range(num_layers)]),
+    }
+    norms = [
+        "batchnorm",
+        "layernorm",
+    ]
+    kern_sizes = [3]
+    for dset, run_args in run_args_list.items():
+        param_sweeps = [
+            (
+                f"{dset}.{name}.lr{lr}.ks{kern_sz}.norm{norm}",
+                {
+                    "lr": lr,
+                    "total-num-update": run_args["updates"],
+                    "max-update": run_args["updates"],
+                    "update-freq": run_args["update_freq"],
+                    
+                    "encoder-layers": num_layers,
+                    "transformer-type": trans_type,
+                    "conformer-kernel-size": kern_sz,
+                    'encoder-embed-dim': 512,
+                    'encoder-attention-heads': 8,
+                    "conformer-norm": norm,
+
+                    "activation-fn2": "glu",
+                    # "num-relpos-embeds": 2,
                 },
             )
             for lr in lrs
